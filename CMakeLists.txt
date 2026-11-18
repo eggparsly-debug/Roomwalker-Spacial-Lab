@@ -68,7 +68,7 @@ if(RW_BUILD_PLUGIN)
 
   # Hosts real plugin instances without a DAW: linking, saved state, automation and transport
   if(RW_BUILD_TOOLS)
-    juce_add_console_app(rwhosttest PRODUCT_NAME "rwhosttest" NEEDS_WEB_BROWSER TRUE)
+    juce_add_console_app(rwhosttest PRODUCT_NAME "rwhosttest" NEEDS_WEB_BROWSER TRUE NEEDS_WEBVIEW2 TRUE)
     target_sources(rwhosttest PRIVATE tools/hosttest.cpp src/plugin/PluginProcessor.cpp src/plugin/PluginEditor.cpp src/plugin/RoomHub.cpp)
     target_include_directories(rwhosttest PRIVATE src/plugin)
     target_compile_definitions(rwhosttest PRIVATE
