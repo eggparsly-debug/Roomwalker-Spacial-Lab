@@ -1,0 +1,20 @@
+[
+ {"name":"loft-moving","fs":48000,"seconds":8,"blocks":[128],"scene":{"bpm":112,"output":"binaural","quality":{"order":2,"taps":16},
+  "room":{"height":3.6,"decay":1,"floor":"hardwood","ceiling":"plaster","verts":[{"x":0,"y":0,"mat":"brick"},{"x":12,"y":0,"mat":"glass"},{"x":12,"y":6,"mat":"drywall"},{"x":6.5,"y":6,"mat":"drywall"},{"x":6.5,"y":11,"mat":"brick"},{"x":0,"y":11,"mat":"brick"}],"obstacles":[{"x":3.4,"y":5.6,"w":0.7,"d":0.7,"h":3.6,"rot":0,"mat":"concrete"}]},
+  "listener":{"x":3.4,"y":3,"z":1.6,"yaw":0.2,"clarity":1,"skull":1,"focus":0.8},
+  "tracks":[{"id":1,"gain":0.6,"mute":false,"solo":false,"direct":1,"early":1,"late":1,"doppler":0.5,"motion":{"mode":"tempo","bars":4,"loop":"pingpong","auto":0,"curve":true,"keys":[{"t":0,"x":10.5,"y":3,"z":1.6,"ease":"smooth"},{"t":6,"x":6.5,"y":4.5,"z":1.8,"ease":"smooth"},{"t":10,"x":3,"y":8.5,"z":2.2,"ease":"smooth"},{"t":14,"x":1.5,"y":9.5,"z":1.6,"ease":"smooth"}]}}]}},
+ {"name":"tunnel-speakers","fs":44100,"seconds":6,"blocks":[64,441,17],"scene":{"bpm":90,"output":"speakers","quality":{"order":1,"taps":8},
+  "room":{"height":3.2,"decay":1,"floor":"concrete","ceiling":"tile","verts":[{"x":0,"y":0,"mat":"tile"},{"x":30,"y":0,"mat":"tile"},{"x":30,"y":3.6,"mat":"tile"},{"x":0,"y":3.6,"mat":"tile"}],"obstacles":[]},
+  "listener":{"x":8,"y":1.8,"z":1.6,"yaw":0,"clarity":1.2,"skull":1,"focus":0.5},
+  "tracks":[{"id":1,"gain":0.8,"mute":false,"solo":false,"direct":1.2,"early":0.8,"late":0.7,"doppler":0,"motion":{"mode":"tempo","bars":2,"loop":"loop","auto":0,"curve":false,"keys":[{"t":0,"x":2,"y":1,"z":1,"ease":"linear"},{"t":3,"x":25,"y":2.5,"z":2.5,"ease":"in"},{"t":6,"x":12,"y":1.8,"z":1.6,"ease":"out"}]}}]}},
+ {"name":"through-head","fs":96000,"seconds":4,"blocks":[256],"scene":{"bpm":120,"output":"binaural","quality":{"order":3,"taps":24},
+  "room":{"height":9,"decay":1.4,"floor":"stone","ceiling":"stone","verts":[{"x":7,"y":0,"mat":"stone"},{"x":13,"y":0,"mat":"stone"},{"x":13,"y":8,"mat":"stone"},{"x":20,"y":8,"mat":"stone"},{"x":20,"y":14,"mat":"stone"},{"x":0,"y":14,"mat":"stone"},{"x":0,"y":8,"mat":"stone"},{"x":7,"y":8,"mat":"stone"}],"obstacles":[{"x":7.6,"y":7.4,"w":1,"d":1,"h":9,"rot":0.3,"mat":"stone"}]},
+  "listener":{"x":10,"y":5,"z":1.6,"yaw":1.57,"clarity":1,"skull":1,"focus":0.8},
+  "tracks":[{"id":1,"gain":0.5,"mute":false,"solo":false,"direct":1,"early":1,"late":1,"doppler":2,"motion":{"mode":"tempo","bars":2,"loop":"pingpong","auto":0,"curve":false,"keys":[{"t":0,"x":10,"y":9,"z":1.6,"ease":"linear"},{"t":4,"x":10,"y":5,"z":1.6,"ease":"linear"},{"t":7.75,"x":10,"y":1,"z":1.6,"ease":"linear"}]}}]}},
+ {"name":"two-voices-edits","fs":48000,"seconds":7,"blocks":[37,512,3,1024,256],"gap":[2.5,4.5],"scene":{"bpm":128,"output":"binaural","quality":{"order":2,"taps":16},
+  "room":{"height":3,"decay":1,"floor":"carpet","ceiling":"foam","verts":[{"x":0,"y":0,"mat":"drywall"},{"x":7,"y":0,"mat":"curtain"},{"x":7,"y":5.5,"mat":"wood"},{"x":0,"y":5.5,"mat":"curtain"}],"obstacles":[]},
+  "listener":{"x":3.5,"y":2.6,"z":1.2,"yaw":0,"clarity":1,"skull":1,"focus":0.8},
+  "tracks":[{"id":1,"gain":0.5,"mute":false,"solo":false,"direct":1,"early":1,"late":1,"doppler":1,"motion":{"mode":"tempo","bars":1,"loop":"loop","auto":0,"curve":true,"keys":[{"t":0,"x":5.5,"y":2.6,"z":1.2,"ease":"linear"},{"t":1,"x":3.5,"y":4.6,"z":2,"ease":"linear"},{"t":2,"x":1.5,"y":2.6,"z":0.8,"ease":"linear"},{"t":3,"x":3.5,"y":0.6,"z":1.6,"ease":"linear"}]}},
+           {"id":2,"gain":0.4,"mute":false,"solo":false,"direct":1,"early":1.3,"late":0.8,"doppler":0.5,"motion":{"mode":"automation","bars":4,"loop":"loop","auto":0.35,"curve":true,"keys":[{"t":0,"x":1,"y":1,"z":1.5,"ease":"linear"},{"t":8,"x":6,"y":5,"z":2,"ease":"linear"}]}}]},
+  "events":[{"at":1.5,"set":{"output":"speakers"}},{"at":3.0,"set":{"output":"binaural","room.height":4.5,"room.decay":1.8}},{"at":5.0,"set":{"tracks.0.mute":true,"tracks.1.doppler":0}}]}
+]

@@ -1,0 +1,2239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roomwalker Spatial Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: an architect's cyanotype drawing sheet. The room is drawn, tracks are inked on top. */
+:root {
+  --paper: #10294c; --paper-deep: #0b1e3a; --panel: #153359; --panel-up: #1c3f6c;
+  --line: #41699b; --chalk: #e9f1f8; --dim: #a5bdd8; --accent: #f4b860; --danger: #ff8d7a;
+  --body: "IBM Plex Sans Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--paper-deep); color: var(--chalk); font: 14px/1.3 var(--body); display: flex; flex-direction: column; min-height: 640px; }
+button, select, input { font: inherit; color: inherit; }
+button { background: var(--panel-up); border: 1px solid var(--line); border-radius: 3px; padding: 4px 10px; cursor: pointer; min-height: 28px; }
+button:hover { border-color: var(--chalk); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.on { background: var(--accent); border-color: var(--accent); color: #1b1305; font-weight: 600; }
+select, input[type=number], textarea { background: var(--paper-deep); border: 1px solid var(--line); border-radius: 3px; padding: 3px 5px; min-height: 28px; min-width: 0; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; height: 20px; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 7px 12px; background: var(--paper); border-bottom: 1px solid var(--line); }
+.mark { font: 500 15px var(--mono); letter-spacing: .2em; text-transform: uppercase; }
+.group { display: flex; align-items: center; gap: 5px; }
+.group > label, .cap { color: var(--dim); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
+#clock { font: 500 17px var(--mono); min-width: 76px; text-align: center; font-variant-numeric: tabular-nums; }
+#bpm { width: 62px; font-family: var(--mono); }
+.seg { display: inline-flex; }
+.seg button { border-radius: 0; margin-left: -1px; }
+.seg button:first-child { border-radius: 3px 0 0 3px; margin-left: 0; }
+.seg button:last-child { border-radius: 0 3px 3px 0; }
+.push { margin-left: auto; }
+#cpu { font: 12px var(--mono); color: var(--dim); min-width: 62px; text-align: right; }
+main { flex: 1; min-height: 0; display: grid; grid-template-columns: 236px minmax(0, 1fr) 272px; }
+aside { background: var(--panel); overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
+#left { border-right: 1px solid var(--line); }
+#right { border-left: 1px solid var(--line); }
+.head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px 4px; }
+.head button { white-space: nowrap; flex: none; }
+.track { display: grid; grid-template-columns: minmax(0, 1fr); gap: 5px; margin: 4px 8px; padding: 7px 8px; border: 1px solid var(--line); border-left: 4px solid var(--ink); border-radius: 3px; background: var(--paper); cursor: pointer; }
+.track.sel { background: var(--panel-up); border-color: var(--chalk); border-left-color: var(--ink); }
+.track .row { display: flex; align-items: center; gap: 4px; }
+.track input.name { flex: 1 1 0; width: 0; background: transparent; border: 0; font-weight: 600; min-width: 0; padding: 2px; }
+.mini { flex: none; }
+.track select { width: 100%; }
+.mini { min-height: 24px; width: 26px; padding: 0; font: 500 12px var(--mono); }
+.meter { height: 4px; background: var(--paper-deep); border-radius: 2px; overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: var(--ink); }
+#center { display: grid; grid-template-rows: minmax(0, 1fr) auto auto; min-width: 0; min-height: 0; background: var(--paper); }
+#views { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); min-height: 0; }
+.view { position: relative; min-width: 0; min-height: 0; }
+.view + .view { border-left: 1px solid var(--line); }
+.view canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+.tag { position: absolute; left: 10px; top: 7px; font: 500 12px var(--mono); letter-spacing: .12em; color: var(--dim); pointer-events: none; }
+#hint { padding: 5px 12px; color: var(--dim); font-size: 13px; border-top: 1px solid var(--line); min-height: 28px; }
+#timelineWrap { border-top: 1px solid var(--line); background: var(--paper-deep); position: relative; }
+#timeline { display: block; width: 100%; touch-action: none; }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; }
+.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: var(--paper); min-height: 36px; font-weight: 600; }
+.tabs button.on { background: var(--panel); color: var(--accent); border-bottom-color: var(--accent); }
+.sec { padding: 8px 12px 10px; border-bottom: 1px solid var(--line); display: grid; gap: 7px; }
+.sec h2 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+.ctl { display: grid; gap: 1px; }
+.ctl .top { display: flex; justify-content: space-between; gap: 8px; }
+.ctl output { font: 12px var(--mono); font-variant-numeric: tabular-nums; }
+.field { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: center; gap: 6px; }
+.xyz { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+.xyz label { display: grid; gap: 1px; color: var(--dim); font-size: 12px; }
+.xyz input { width: 100%; font-family: var(--mono); font-size: 12px; }
+.note { color: var(--dim); font-size: 13px; margin: 0; }
+.btns { display: flex; flex-wrap: wrap; gap: 5px; }
+.stat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.stat div { display: grid; }
+.stat b { font: 500 15px var(--mono); }
+.stat span { font-size: 12px; color: var(--dim); }
+#overlay { position: fixed; inset: 0; background: rgba(5, 14, 28, .72); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 10; }
+#overlay.open { display: flex; }
+#sheet { width: min(640px, 100%); background: var(--panel); border: 1px solid var(--chalk); border-radius: 4px; padding: 14px; display: grid; gap: 10px; }
+#sheet h2 { margin: 0; font-size: 17px; }
+#sceneText { width: 100%; height: 300px; font: 12px var(--mono); resize: vertical; }
+#sceneMsg { color: var(--accent); min-height: 18px; margin: 0; }
+[hidden] { display: none !important; }
+.linknote { padding: 0 10px 4px; }
+@media (max-width: 1060px) {
+  html, body { height: auto; }
+  main { grid-template-columns: 1fr; }
+  aside { overflow: visible; }
+  #left, #right { border: 0; border-top: 1px solid var(--line); }
+  #left { order: 2; } #right { order: 3; }
+  #views { height: 760px; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  .view + .view { border-left: 0; border-top: 1px solid var(--line); }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="mark">Roomwalker</div>
+  <div class="group">
+    <button id="rewind" title="Return to bar 1" aria-label="Return to bar 1">|&lt;</button>
+    <button id="play">Play</button>
+    <div id="clock" aria-live="off">1.1.00</div>
+    <label for="bpm">BPM</label><input id="bpm" type="number" min="40" max="240" step="1">
+  </div>
+  <div class="group"><label>Output</label><div class="seg" id="output"></div></div>
+  <div class="group"><label for="preset">Room</label><select id="preset"></select></div>
+  <div class="group" id="masterGroup"><label for="master">Master</label><input id="master" type="range" min="0" max="1" step="0.01" value="0.8" style="width:84px"></div>
+  <div class="group push">
+    <span id="cpu">CPU --</span>
+    <button id="undo">Undo</button>
+    <button id="sceneBtn">Scene file</button>
+  </div>
+</header>
+<main>
+  <aside id="left" aria-label="Tracks"></aside>
+  <section id="center">
+    <div id="views">
+      <div class="view"><canvas id="plan" tabindex="0" aria-label="Floor plan editor"></canvas><div class="tag">PLAN / 1 M GRID</div></div>
+      <div class="view"><canvas id="persp" tabindex="0" aria-label="3D room view"></canvas><div class="tag">3D</div></div>
+    </div>
+    <div id="hint"></div>
+    <div id="timelineWrap"><canvas id="timeline" aria-label="Path timeline"></canvas></div>
+  </section>
+  <aside id="right" aria-label="Inspector">
+    <div class="tabs"><button id="tabTrack">Track</button><button id="tabRoom">Room</button></div>
+    <div id="inspector"></div>
+  </aside>
+</main>
+<div id="overlay"><div id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <h2 id="sheetTitle">Scene file</h2>
+  <p class="note">This JSON holds the room, listener, tracks and paths. The VST will read the same format. Copy it to keep a scene, or paste one here and apply it.</p>
+  <textarea id="sceneText" spellcheck="false" aria-label="Scene JSON"></textarea>
+  <p id="sceneMsg" role="status"></p>
+  <div class="btns"><button id="sceneCopy">Copy</button><button id="sceneApply">Apply pasted scene</button><button id="sceneClose" class="push">Close</button></div>
+</div></div>
+<input id="file" type="file" accept="audio/*" hidden>
+<script>/* Roomwalker DSP core.
+   Written with no DOM or Web Audio dependencies so that it runs unchanged in an
+   AudioWorklet, in Node for measurement, and maps one-to-one onto the JUCE port:
+     SharedRoom   -> process-wide singleton shared by linked plugin instances
+     Voice        -> one plugin instance (one track, one moving sound)
+     Engine       -> stands in for the DAW: transport plus a mix of all instances */
+function RoomwalkerDSP() {
+  'use strict';
+
+  const C = 343;
+  const TAU = Math.PI * 2;
+  const HEAD_RADIUS = 0.0875;
+  const SUB = 32;            // audio-rate parameter ramps
+  const CONTROL = 256;       // motion and direct-path update interval, samples
+  const POOL = 34;           // tap slots per voice, including ones fading out
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  const MIN_DELAY = 9;       // samples; keeps every interpolator reading written audio
+
+  /* 12-point Kaiser-windowed sinc used for the direct path: flat treble at any fractional delay */
+  const SINC_TAPS = 12, SINC_PHASES = 256, SINC = (() => {
+    const bessel = x => { let s = 1, t = 1; for (let k = 1; k < 30; k++) { t *= (x / (2 * k)) ** 2; s += t; } return s; };
+    const beta = 6.5, h = new Float64Array((SINC_PHASES + 1) * SINC_TAPS);
+    for (let p = 0; p <= SINC_PHASES; p++) {
+      const f = p / SINC_PHASES; let sum = 0;
+      for (let k = 0; k < SINC_TAPS; k++) {
+        const x = k - 5 - f, r = x / 6;
+        const win = Math.abs(r) >= 1 ? 0 : bessel(beta * Math.sqrt(1 - r * r)) / bessel(beta);
+        const v = (Math.abs(x) < 1e-9 ? 1 : Math.sin(Math.PI * x) / (Math.PI * x)) * win;
+        h[p * SINC_TAPS + k] = v; sum += v;
+      }
+      for (let k = 0; k < SINC_TAPS; k++) h[p * SINC_TAPS + k] /= sum;
+    }
+    return h;
+  })();
+
+  /* Absorption coefficients: low (<300 Hz), mid, high (>2.5 kHz) */
+  const MATERIALS = {
+    concrete: { name: 'Concrete', a: [0.02, 0.03, 0.05] },
+    brick: { name: 'Brick', a: [0.03, 0.04, 0.07] },
+    stone: { name: 'Dressed stone', a: [0.02, 0.03, 0.04] },
+    rock: { name: 'Rough rock', a: [0.05, 0.08, 0.14] },
+    tile: { name: 'Glazed tile', a: [0.01, 0.015, 0.02] },
+    glass: { name: 'Window glass', a: [0.2, 0.05, 0.03] },
+    plaster: { name: 'Plaster', a: [0.12, 0.06, 0.04] },
+    drywall: { name: 'Drywall', a: [0.2, 0.06, 0.05] },
+    wood: { name: 'Wood panel', a: [0.2, 0.1, 0.08] },
+    hardwood: { name: 'Hardwood floor', a: [0.12, 0.08, 0.08] },
+    carpet: { name: 'Carpet', a: [0.08, 0.35, 0.6] },
+    curtain: { name: 'Heavy curtain', a: [0.1, 0.5, 0.65] },
+    foam: { name: 'Acoustic foam', a: [0.2, 0.75, 0.95] }
+  };
+  const AIR = [0.0001, 0.0006, 0.0045];
+  const matOf = id => MATERIALS[id] || MATERIALS.plaster;
+
+  /* ------------------------------------------------------------------ geometry */
+  function signedArea(v) {
+    let s = 0;
+    for (let i = 0; i < v.length; i++) {
+      const a = v[i], b = v[(i + 1) % v.length];
+      s += a.x * b.y - b.x * a.y;
+    }
+    return s / 2;
+  }
+  function pointInPoly(x, y, v) {
+    let inside = false;
+    for (let i = 0, j = v.length - 1; i < v.length; j = i++) {
+      const a = v[i], b = v[j];
+      if ((a.y > y) !== (b.y > y) && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+    }
+    return inside;
+  }
+  function obstacleCorners(o) {
+    const c = Math.cos(o.rot || 0), s = Math.sin(o.rot || 0), w = o.w / 2, d = o.d / 2;
+    return [[-w, -d], [w, -d], [w, d], [-w, d]].map(p => ({ x: o.x + p[0] * c - p[1] * s, y: o.y + p[0] * s + p[1] * c }));
+  }
+
+  class SharedRoom {
+    constructor(desc) {
+      this.desc = desc;
+      const H = (this.height = Math.max(1.5, desc.height));
+      let verts = desc.verts.map(v => ({ x: v.x, y: v.y, mat: v.mat }));
+      if (signedArea(verts) < 0) {
+        // keep each wall's material attached to the wall when the winding flips
+        const n = verts.length, r = [];
+        for (let i = 0; i < n; i++) r.push({ x: verts[(n - i) % n].x, y: verts[(n - i) % n].y, mat: verts[(2 * n - i - 1) % n].mat });
+        verts = r;
+      }
+      this.verts = verts;
+      this.surfaces = [];
+      this.blockers = [];
+      this.obstacles = [];
+      const refl = m => matOf(m).a.map(a => Math.sqrt(1 - a));
+
+      verts.forEach((p, i) => {
+        const q = verts[(i + 1) % verts.length];
+        const ex = q.x - p.x, ey = q.y - p.y, len = Math.hypot(ex, ey) || 1;
+        const nx = -ey / len, ny = ex / len;
+        const s = { kind: 'wall', px: p.x, py: p.y, qx: q.x, qy: q.y, ex, ey, len, nx, ny, nz: 0, d: nx * p.x + ny * p.y, zmax: H, R: refl(p.mat), obs: -1 };
+        this.surfaces.push(s);
+        this.blockers.push(s);
+      });
+      this.surfaces.push({ kind: 'floor', nx: 0, ny: 0, nz: 1, d: 0, R: refl(desc.floor), obs: -1 });
+      this.surfaces.push({ kind: 'ceil', nx: 0, ny: 0, nz: -1, d: -H, R: refl(desc.ceiling), obs: -1 });
+
+      (desc.obstacles || []).forEach((o, oi) => {
+        const cs = obstacleCorners(o), h = Math.min(o.h, H);
+        this.obstacles.push({ corners: cs, h, desc: o });
+        // corners run counter-clockwise, so the right-hand normal faces outward
+        cs.forEach((p, i) => {
+          const q = cs[(i + 1) % 4];
+          const ex = q.x - p.x, ey = q.y - p.y, len = Math.hypot(ex, ey) || 1;
+          const nx = ey / len, ny = -ex / len;
+          const s = { kind: 'obs', px: p.x, py: p.y, qx: q.x, qy: q.y, ex, ey, len, nx, ny, nz: 0, d: nx * p.x + ny * p.y, zmax: h, R: refl(o.mat), obs: oi };
+          this.surfaces.push(s);
+          this.blockers.push(s);
+        });
+      });
+      this.surfaces.forEach((s, i) => (s.id = i));
+      this.stats = analyzeRoom(desc);
+    }
+
+    inPlan(x, y) { return pointInPoly(x, y, this.verts); }
+
+    /* Parameter along segment a->b where it crosses vertical surface s, or -1 */
+    hit(ax, ay, az, bx, by, bz, s) {
+      const dx = bx - ax, dy = by - ay;
+      const den = dx * s.ey - dy * s.ex;
+      if (den > -1e-10 && den < 1e-10) return -1;
+      const rx = s.px - ax, ry = s.py - ay;
+      const t = (rx * s.ey - ry * s.ex) / den;
+      if (t <= 1e-4 || t >= 0.9999) return -1;
+      const u = (rx * dy - ry * dx) / den;
+      if (u < 0 || u > 1) return -1;
+      if (az + t * (bz - az) > s.zmax) return -1;
+      return t;
+    }
+
+    blocked(ax, ay, az, bx, by, bz, skipA, skipB) {
+      const list = this.blockers;
+      for (let i = 0; i < list.length; i++) {
+        const s = list[i];
+        if (s.id === skipA || s.id === skipB) continue;
+        if (this.hit(ax, ay, az, bx, by, bz, s) >= 0) return true;
+      }
+      return false;
+    }
+
+    /* Extra path length needed to get around whatever blocks a->b. It reaches
+       zero exactly as the line of sight opens, so occlusion never clicks. */
+    detour(a, b) {
+      const direct = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+      let wall = 0, obstacle = 0;
+      const seen = new Set();
+      const via = (x, y, z) => Math.hypot(x - a.x, y - a.y, z - a.z) + Math.hypot(x - b.x, y - b.y, z - b.z) - direct;
+      for (const s of this.blockers) {
+        const t = this.hit(a.x, a.y, a.z, b.x, b.y, b.z, s);
+        if (t < 0) continue;
+        const z = a.z + t * (b.z - a.z);
+        if (s.kind === 'wall') {
+          wall = Math.max(wall, Math.min(via(s.px, s.py, z), via(s.qx, s.qy, z)));
+        } else if (!seen.has(s.obs)) {
+          seen.add(s.obs);
+          const o = this.obstacles[s.obs];
+          let best = via(a.x + t * (b.x - a.x), a.y + t * (b.y - a.y), o.h);
+          for (const c of o.corners) best = Math.min(best, via(c.x, c.y, z));
+          obstacle += Math.max(0, best);
+        }
+      }
+      return wall + obstacle;
+    }
+
+    onSurface(s, x, y, z) {
+      if (s.kind === 'floor' || s.kind === 'ceil') return pointInPoly(x, y, this.verts);
+      const u = ((x - s.px) * s.ex + (y - s.py) * s.ey) / (s.len * s.len);
+      return u >= 0 && u <= 1 && z >= 0 && z <= s.zmax;
+    }
+
+    /* Image-source search through the custom room. Returns audible specular paths. */
+    findReflections(S, L, order, out) {
+      out.length = 0;
+      const surfaces = this.surfaces, self = this;
+      const chain = [], images = [];
+      let budget = 5000;
+
+      function trace(depth) {
+        const pts = [];
+        let tx = L.x, ty = L.y, tz = L.z, prev = -1;
+        let gl = 1, gm = 1, gh = 1;
+        for (let j = depth - 1; j >= 0; j--) {
+          const s = surfaces[chain[j]], I = images[j];
+          const dx = I.x - tx, dy = I.y - ty, dz = I.z - tz;
+          const den = s.nx * dx + s.ny * dy + s.nz * dz;
+          if (den > -1e-9 && den < 1e-9) return;
+          const t = (s.d - (s.nx * tx + s.ny * ty + s.nz * tz)) / den;
+          if (t <= 1e-4 || t >= 0.9999) return;
+          const px = tx + t * dx, py = ty + t * dy, pz = tz + t * dz;
+          if (!self.onSurface(s, px, py, pz)) return;
+          if (self.blocked(tx, ty, tz, px, py, pz, prev, s.id)) return;
+          pts.push(px, py, pz);
+          gl *= s.R[0]; gm *= s.R[1]; gh *= s.R[2];
+          tx = px; ty = py; tz = pz; prev = s.id;
+        }
+        if (self.blocked(tx, ty, tz, S.x, S.y, S.z, prev, -1)) return;
+        const I = images[depth - 1];
+        const dist = Math.hypot(I.x - L.x, I.y - L.y, I.z - L.z);
+        let key = 0;
+        for (let j = 0; j < depth; j++) key = key * 64 + chain[j] + 1;
+        out.push({ key, dist, gl, gm, gh, order: depth, ax: pts[0], ay: pts[1], az: pts[2], pts, rank: gm / Math.max(dist, 0.3) });
+      }
+
+      function descend(depth, from) {
+        for (let i = 0; i < surfaces.length; i++) {
+          if (depth > 0 && chain[depth - 1] === i) continue;
+          if (--budget < 0) return;
+          const s = surfaces[i];
+          const side = s.nx * from.x + s.ny * from.y + s.nz * from.z - s.d;
+          if (side <= 0) continue;
+          if (s.nx * L.x + s.ny * L.y + s.nz * L.z - s.d <= 0 && depth + 1 === order) continue;
+          const img = { x: from.x - 2 * side * s.nx, y: from.y - 2 * side * s.ny, z: from.z - 2 * side * s.nz };
+          chain[depth] = i;
+          images[depth] = img;
+          trace(depth + 1);
+          if (depth + 1 < order) descend(depth + 1, img);
+        }
+      }
+      descend(0, S);
+      return out;
+    }
+  }
+
+  /* Volume, surface area and Eyring decay time for each band */
+  function analyzeRoom(desc) {
+    const H = Math.max(1.5, desc.height), v = desc.verts;
+    const planArea = Math.abs(signedArea(v));
+    let perim = 0;
+    const absorb = [0, 0, 0];
+    const add = (mat, area) => matOf(mat).a.forEach((a, b) => (absorb[b] += area * a));
+    v.forEach((p, i) => {
+      const q = v[(i + 1) % v.length], len = Math.hypot(q.x - p.x, q.y - p.y);
+      perim += len;
+      add(p.mat, len * H);
+    });
+    add(desc.floor, planArea);
+    add(desc.ceiling, planArea);
+    let volume = planArea * H, surface = 2 * planArea + perim * H;
+    (desc.obstacles || []).forEach(o => {
+      const h = Math.min(o.h, H);
+      volume -= o.w * o.d * h;
+      const area = 2 * (o.w + o.d) * h;
+      surface += area;
+      add(o.mat, area);
+    });
+    volume = Math.max(1, volume);
+    const scale = desc.decay == null ? 1 : desc.decay;
+    const rt = absorb.map((A, b) => {
+      const mean = clamp(A / surface, 0.001, 0.98);
+      return clamp((scale * 0.161 * volume) / (-surface * Math.log(1 - mean) + 4 * AIR[b] * volume), 0.05, 20);
+    });
+    const equivalent = (0.161 * volume) / rt[1];
+    return { volume, surface, planArea, rt, mfp: (4 * volume) / surface, absorption: equivalent, critical: Math.sqrt(equivalent / (16 * Math.PI)) };
+  }
+
+  /* ---------------------------------------------------------------- motion path */
+  const EASE = {
+    linear: u => u,
+    smooth: u => u * u * (3 - 2 * u),
+    in: u => u * u,
+    out: u => 1 - (1 - u) * (1 - u)
+  };
+  const BEATS_PER_BAR = 4;
+
+  function pathPhase(m, beat) {
+    const len = Math.max(1, m.bars * BEATS_PER_BAR);
+    if (m.mode === 'automation') return clamp(m.auto, 0, 1) * len;
+    if (m.loop === 'once') return clamp(beat, 0, len);
+    if (m.loop === 'pingpong') {
+      const p = ((beat % (2 * len)) + 2 * len) % (2 * len);
+      return p > len ? 2 * len - p : p;
+    }
+    return ((beat % len) + len) % len;
+  }
+
+  function evalPath(m, beat, out) {
+    out = out || { x: 0, y: 0, z: 0 };
+    const k = m.keys, n = k.length;
+    if (!n) return out;
+    if (n === 1) { out.x = k[0].x; out.y = k[0].y; out.z = k[0].z; return out; }
+    const len = Math.max(1, m.bars * BEATS_PER_BAR);
+    const closed = m.loop === 'loop';
+    const p = pathPhase(m, beat);
+    let i0;
+    if (p < k[0].t) {
+      if (!closed) { out.x = k[0].x; out.y = k[0].y; out.z = k[0].z; return out; }
+      i0 = n - 1;
+    } else {
+      i0 = n - 1;
+      for (let i = 0; i < n - 1; i++) if (p < k[i + 1].t) { i0 = i; break; }
+      if (i0 === n - 1 && !closed) { out.x = k[n - 1].x; out.y = k[n - 1].y; out.z = k[n - 1].z; return out; }
+    }
+    const i1 = (i0 + 1) % n;
+    let t0 = k[i0].t, t1 = k[i1].t;
+    let q = p;
+    if (i1 <= i0) { t1 += len; if (q < t0) q += len; }
+    const raw = t1 > t0 ? clamp((q - t0) / (t1 - t0), 0, 1) : 0;
+    const u = (EASE[k[i0].ease] || EASE.linear)(raw);
+    const a = k[i0], b = k[i1];
+    if (m.curve === false) {
+      out.x = a.x + (b.x - a.x) * u; out.y = a.y + (b.y - a.y) * u; out.z = a.z + (b.z - a.z) * u;
+      return out;
+    }
+    const before = closed ? k[(i0 - 1 + n) % n] : k[Math.max(0, i0 - 1)];
+    const after = closed ? k[(i1 + 1) % n] : k[Math.min(n - 1, i1 + 1)];
+    const cr = (p0, p1, p2, p3) => 0.5 * (2 * p1 + (p2 - p0) * u + (2 * p0 - 5 * p1 + 4 * p2 - p3) * u * u + (3 * p1 - p0 - 3 * p2 + p3) * u * u * u);
+    out.x = cr(before.x, a.x, b.x, after.x);
+    out.y = cr(before.y, a.y, b.y, after.y);
+    out.z = cr(before.z, a.z, b.z, after.z);
+    return out;
+  }
+
+  /* --------------------------------------------------------------- late reverb */
+  const LINES = 16;
+  const LINE_RATIO = Array.from({ length: LINES }, (_, i) => 0.55 * Math.pow(1.75 / 0.55, i / (LINES - 1)));
+  const walsh = (row, i) => { let n = row & i, c = 0; while (n) { c ^= n & 1; n >>= 1; } return c ? -1 : 1; };
+  const SIGN_L = Array.from({ length: LINES }, (_, i) => walsh(5, i));
+  const SIGN_R = Array.from({ length: LINES }, (_, i) => walsh(10, i));
+  const SIGN_IN = Array.from({ length: LINES }, (_, i) => walsh(15, i));
+  const isPrime = n => { for (let d = 3; d * d <= n; d += 2) if (n % d === 0) return false; return n % 2 === 1; };
+  const nextPrime = n => { n |= 1; while (!isPrime(n)) n += 2; return n; };
+
+  class LateReverb {
+    constructor(fs) {
+      this.fs = fs;
+      let size = 1 << 12;
+      while (size < fs * 0.36) size <<= 1;
+      this.mask = size - 1;
+      this.lines = LINE_RATIO.map(() => new Float32Array(size));
+      this.cur = LINE_RATIO.map(r => r * 0.03 * fs);
+      this.target = this.cur.slice();
+      this.w = 0;
+      // Per-line damping: broadband gain plus low and high first-order shelves.
+      // Shelves add in decibels, so each band decays at its own rate.
+      this.gm = new Float64Array(LINES).fill(0.8);
+      this.ls = LINE_RATIO.map(() => ({ b0: 1, b1: 0, a1: 0, x: 0, y: 0 }));
+      this.hs = LINE_RATIO.map(() => ({ b0: 1, b1: 0, a1: 0, x: 0, y: 0 }));
+      this.kLow = Math.tan((Math.PI * 400) / fs);
+      this.kHigh = Math.tan((Math.PI * 3000) / fs);
+      this.tuned = false; this.apG = 0.5;
+      this.phase = LINE_RATIO.map((_, i) => i * 0.83);
+      this.rate = LINE_RATIO.map((_, i) => (TAU * (0.07 + i * 0.019)) / fs);
+      this.modDepth = fs * 0.0001;
+      this.loopAP = LINE_RATIO.map((r, i) => ({ b: new Float32Array(nextPrime(Math.round(fs * (0.0031 + 0.00083 * i)))), i: 0 }));
+      this.y = new Float64Array(LINES);
+      this.diff = [1.3, 2.1, 3.1, 4.7, 7.3, 11.9, 17.3, 26.9].map(ms => ({ b: new Float32Array(Math.ceil((ms * fs) / 1000)), i: 0, ms, g: 0.6 }));
+      this.gain = 0;
+      this.gainTarget = 0;
+      this.tiltL = 1; this.tiltR = 1;
+      this.sideLP = 0; this.sideLP2 = 0;
+      this.bassMono = 0;
+      this.sideC = 1 - Math.exp((-TAU * 220) / fs);
+    }
+    design(fl, fh, lowDb, highDb) {
+      const low = Math.pow(10, lowDb / 40), high = Math.pow(10, highDb / 40);
+      let K = this.kLow, a0 = 1 + K / low;
+      fl.b0 = (1 + K * low) / a0; fl.b1 = (K * low - 1) / a0; fl.a1 = (K / low - 1) / a0;
+      K = this.kHigh; a0 = 1 / high + K;
+      fh.b0 = (high + K) / a0; fh.b1 = (K - high) / a0; fh.a1 = (K - 1 / high) / a0;
+    }
+    setRoom(st, binaural) {
+      const PROBE = [150, 1000, 6000].map(f => (TAU * f) / this.fs);
+      const response = (f, w) => {
+        const c = Math.cos(w), s = Math.sin(w);
+        const num = (f.b0 + f.b1 * c) ** 2 + (f.b1 * s) ** 2, den = (1 + f.a1 * c) ** 2 + (f.a1 * s) ** 2;
+        return 10 * Math.log10(num / den);
+      };
+      // Long decays need more total delay, or the tail rings at individual pitches
+      const base = clamp(Math.max(st.mfp / C, (0.15 * st.rt[1]) / LINES), 0.0105, 0.05) * this.fs;
+      let total = 0;
+      for (let i = 0; i < LINES; i++) {
+        this.target[i] = nextPrime(Math.round(base * LINE_RATIO[i]));
+        const loopLen = this.target[i] + this.loopAP[i].b.length;   // the in-loop allpass adds to the path
+        total += loopLen;
+        // Solve the three gains so the loop hits each band's target at 150 Hz, 1 kHz and 6 kHz
+        const want = st.rt.map(rt => (-60 * loopLen) / (this.fs * rt));
+        let mid = want[1], low = want[0] - want[1], high = want[2] - want[1];
+        const fl = this.ls[i], fh = this.hs[i];
+        for (let it = 0; it < 6; it++) {
+          this.design(fl, fh, low, high);
+          const err = PROBE.map((w, b) => want[b] - (mid + response(fl, w) + response(fh, w)));
+          mid += err[1];
+          low = clamp(low + (err[0] - err[1]) * 1.3, -60, 60);
+          high = clamp(high + (err[2] - err[1]) * 1.3, -60, 60);
+        }
+        this.design(fl, fh, low, high);
+        // Guarantee the loop loses energy at every frequency, in every room
+        let top = -999;
+        for (let k = 0; k <= 48; k++) {
+          const w = (TAU * 4 * Math.pow(this.fs / 8.2, k / 48)) / this.fs;
+          top = Math.max(top, mid + response(fl, w) + response(fh, w));
+        }
+        const ceiling = (-60 * loopLen) / (this.fs * 30);
+        if (top > ceiling) mid -= top - ceiling;
+        this.gm[i] = Math.pow(10, mid / 20);
+      }
+      if (!this.tuned) { this.cur = this.target.slice(); this.tuned = true; }
+      // The input diffusers must never ring longer than the room itself
+      const spread = clamp(st.rt[1] / 0.9, 0.62, 1);   // short rooms get less smear so they stay tight
+      for (const a of this.diff) a.g = (a.ms < 8 ? 1 : spread) * Math.min(0.6, Math.pow(10, (-3 * a.ms) / (1000 * st.rt[1])));
+      this.apG = 0.5 * spread;
+      // Scale so the steady reverberant field matches the room's critical distance
+      const ratio = Math.min(16, (16 * Math.PI) / st.absorption);
+      const impulseEnergy = (this.fs * st.rt[1]) / (13.8 * total);
+      this.gainTarget = Math.sqrt(ratio / impulseEnergy);
+      this.bassMono = binaural ? 1 : 0;
+    }
+    process(input, outL, outR, n, level, tiltDb = 0) {
+      const mask = this.mask, lines = this.lines;
+      const tl0 = this.tiltL, tr0 = this.tiltR;
+      this.tiltL += (Math.pow(10, tiltDb / 20) - this.tiltL) * 0.02; this.tiltR += (Math.pow(10, -tiltDb / 20) - this.tiltR) * 0.02;
+      const dtl = (this.tiltL - tl0) / n, dtr = (this.tiltR - tr0) / n; let tl = tl0, tr = tr0;
+      const y = this.y, depth = this.modDepth, margin = depth + 4;
+      for (let i = 0; i < LINES; i++) this.cur[i] += clamp(this.target[i] - this.cur[i], -2, 2);
+      const g0 = this.gain;
+      this.gain += (this.gainTarget * level - this.gain) * 0.02;
+      const dg = (this.gain - g0) / n;
+      let g = g0;
+      for (let s = 0; s < n; s++) {
+        let x = input[s];
+        for (const a of this.diff) {
+          const d = a.b[a.i], v = x + a.g * d;
+          a.b[a.i] = v;
+          x = d - a.g * v;
+          if (++a.i >= a.b.length) a.i = 0;
+        }
+        let sum = 0, L = 0, R = 0;
+        for (let i = 0; i < LINES; i++) {
+          this.phase[i] += this.rate[i];
+          if (this.phase[i] > TAU) this.phase[i] -= TAU;
+          const rd = this.w - this.cur[i] - depth * Math.sin(this.phase[i]) - margin;
+          const idx = Math.floor(rd), f = rd - idx, b = lines[i];
+          const xm = b[(idx - 1) & mask], x0 = b[idx & mask], x1 = b[(idx + 1) & mask], x2 = b[(idx + 2) & mask];
+          const c1 = 0.5 * (x1 - xm), c2 = xm - 2.5 * x0 + 2 * x1 - 0.5 * x2, c3 = 0.5 * (x2 - xm) + 1.5 * (x0 - x1);
+          const v = ((c3 * f + c2) * f + c1) * f + x0;
+          const fl = this.ls[i], fh = this.hs[i];
+          const o1 = fl.b0 * v + fl.b1 * fl.x - fl.a1 * fl.y; fl.x = v; fl.y = o1;
+          const o2 = fh.b0 * o1 + fh.b1 * fh.x - fh.a1 * fh.y; fh.x = o1; fh.y = o2;
+          const ap = this.loopAP[i], z = ap.b[ap.i], u = o2 + this.apG * z;
+          ap.b[ap.i] = u; if (++ap.i >= ap.b.length) ap.i = 0;
+          const o = this.gm[i] * (z - this.apG * u);
+          y[i] = o; sum += o;
+          L += SIGN_L[i] * v; R += SIGN_R[i] * v;
+        }
+        sum *= 2 / LINES;
+        const inj = x * 0.25;
+        for (let i = 0; i < LINES; i++) lines[i][this.w & mask] = y[i] - sum + SIGN_IN[i] * inj;
+        this.w = (this.w + 1) & mask;
+        L *= 0.25; R *= 0.25;
+        if (this.bassMono) {
+          // Real rooms are coherent at the two ears below roughly 200 Hz
+          const side = 0.5 * (L - R), mid = 0.5 * (L + R);
+          this.sideLP += this.sideC * (side - this.sideLP);
+          const hp1 = side - this.sideLP;
+          this.sideLP2 += this.sideC * (hp1 - this.sideLP2);
+          const sh = hp1 - this.sideLP2;
+          L = mid + sh; R = mid - sh;
+        }
+        g += dg;
+        tl += dtl; tr += dtr;
+        outL[s] += L * g * tl; outR[s] += R * g * tr;
+      }
+    }
+  }
+
+  /* ---------------------------------------------------------------- render taps */
+  class Ear {
+    constructor() {
+      this.lp1 = 0; this.lp2 = 0; this.shX = 0; this.shY = 0;
+      this.amp = 0; this.ampT = 0; this.ampM = 0; this.b0 = 1; this.b1 = 0; this.b0T = 1; this.b1T = 0; this.b0M = 1; this.b1M = 0; this.b00 = 1; this.b10 = 0;
+      this.extra = 0; this.extraT = 0; this.extraM = 0;
+      // direct path only
+      this.s1 = 0; this.s2 = 0; this.s3 = 0; this.s4 = 0; this.rear = 0;
+      this.eq = new Float64Array(6);    // directional bands
+      this.sk = new Float64Array(8);    // skull path
+    }
+  }
+  class Tap {
+    constructor() {
+      this.active = false; this.key = -1; this.dying = false;
+      this.d = 0; this.dT = 0; this.tM = 0; this.tS = 0; this.anchor = 0; this.xf = 0; this.xf0 = 0; this.off = 0;
+      this.gl = 1; this.gm = 1; this.gh = 1; this.glT = 1; this.gmT = 1; this.ghT = 1; this.glM = 1; this.gmM = 1; this.ghM = 1; this.gl0 = 1; this.gm0 = 1; this.gh0 = 1;
+      this.L = new Ear(); this.R = new Ear();
+      this.order = 1; this.pts = null; this.level = 0;
+      this.spL = 1; this.spM = 1; this.spH = 1; this.scL = 0; this.scM = 0; this.scH = 0;
+      this.spLT = 1; this.spMT = 1; this.spHT = 1; this.scLT = 0; this.scMT = 0; this.scHT = 0;
+    }
+  }
+
+  /* Head-relative cues: spherical-head delay and shadow after Woodworth and Brown-Duda.
+     These mirror front to back, so the directional bands in the direct path separate them. */
+  function headCues(fx, fy, fz, listener, binaural, fs, r) {
+    const yaw = listener.yaw || 0, cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const m = Math.hypot(fx, fy, fz) || 1;
+    const x = fx / m, y = fy / m, z = fz / m;
+    const front = x * cy + y * sy, left = -x * sy + y * cy, up = z;
+    r.front = front; r.left = left; r.up = up;
+    const K = (fs * HEAD_RADIUS) / C, a1 = (1 - K) / (1 + K);
+    if (!binaural) {
+      const a = (Math.PI / 4) * (1 + clamp(left, -1, 1));
+      r.itdL = 0; r.itdR = 0; r.panL = Math.sin(a); r.panR = Math.cos(a);
+      r.b0L = 1; r.b1L = a1; r.b0R = 1; r.b1R = a1;   // zero cancels the pole: flat
+      r.maxItd = 0; r.itd = 0;
+      return r;
+    }
+    const axis = clamp(left, -1, 1);
+    const lat = Math.asin(axis), abs = Math.abs(lat);
+    const itd = ((HEAD_RADIUS / C) * (abs + Math.sin(abs)) * fs) / 2;
+    const maxItd = ((HEAD_RADIUS / C) * (Math.PI / 2 + 1) * fs) / 2;
+    r.maxItd = maxItd; r.itd = axis >= 0 ? itd : -itd;
+    r.itdL = maxItd - r.itd;
+    r.itdR = maxItd + r.itd;
+    r.panL = 1; r.panR = 1;
+    const zero = cosine => {
+      const deg = (Math.acos(clamp(cosine, -1, 1)) * 180) / Math.PI;
+      const alpha = 1.05 + 0.95 * Math.cos((Math.min(deg, 150) / 150) * Math.PI);
+      return [(1 + alpha * K) / (1 + K), (1 - alpha * K) / (1 + K)];
+    };
+    const zl = zero(left), zr = zero(-left);
+    r.b0L = zl[0]; r.b1L = zl[1]; r.b0R = zr[0]; r.b1R = zr[1];
+    return r;
+  }
+
+  /* ---------------------------------------------------------------- one track */
+  class Voice {
+    constructor(fs, id) {
+      this.fs = fs; this.id = id;
+      let size = 1 << 16;
+      while (size < fs * 2.8) size <<= 1;
+      this.size = size; this.mask = size - 1;
+      this.maxDelay = size - 2048;
+      this.buf = new Float32Array(size);
+      this.w = 0;
+      this.pool = [];
+      for (let i = 0; i < POOL; i++) this.pool.push(new Tap());
+      this.direct = new Tap();
+      this.direct.active = true; this.direct.key = 0;
+      this.late = new LateReverb(fs);
+      this.lateIn = new Float32Array(SUB);
+      this.lateD = fs * 0.03; this.lateDT = this.lateD;
+      this.pos = { x: 0, y: 0, z: 1.5 };
+      this.c1 = 1 - Math.exp((-TAU * 300) / fs);
+      this.c2 = 1 - Math.exp((-TAU * 2500) / fs);
+      this.cRear = 1 - Math.exp((-TAU * 3500) / fs);
+      const tanF = f => Math.tan((Math.PI * Math.min(f, fs * 0.45)) / fs);
+      this.g3 = tanF(3200); this.g10 = tanF(1050); this.g8 = tanF(8000);
+      this.cSk1 = 1 - Math.exp((-TAU * 1500) / fs);
+      this.cSk2 = 1 - Math.exp((-TAU * 320) / fs);
+      this.gSkA1 = tanF(610); this.gSkA2 = tanF(640); this.gSkB1 = tanF(1420); this.gSkB2 = tanF(1510);
+      this.a1 = (1 - (2 * fs * HEAD_RADIUS) / (2 * C)) / (1 + (2 * fs * HEAD_RADIUS) / (2 * C));
+      this.anchorRange = fs * 0.008;   // how far timing may drift before a hidden crossfade
+      this.jumpRange = fs * 0.006;     // anything faster than this is a teleport, not motion
+      this.xfLen = Math.round(fs * 0.02);
+      this.inF = new Float32Array(SUB); this.outFL = new Float32Array(SUB); this.outFR = new Float32Array(SUB);
+      this.fifo = 0; this.dcX = 0; this.dcY = 0; this.dcR = Math.exp((-TAU * 8) / fs);
+      this.busL = new Float32Array(SUB); this.busR = new Float32Array(SUB);
+      const stages = list => list.map(ms => ({ b: new Float32Array(Math.round((ms * fs) / 1000)), i: 0 }));
+      this.scatterL = stages([1.7, 3.1, 5.3, 8.9, 13.7]); this.scatterR = stages([2.3, 3.7, 6.1, 10.1, 15.1]);
+      this.quietIn = 0; this.quietOut = 0; this.sleeping = false; this.outGain = 1; this.outGainT = 1; this.last = null;
+      this.kDelay = 1 - Math.exp(-SUB / (fs * 0.03));
+      this.kPath = 1 - Math.exp(-SUB / (fs * 0.015));   // two stages hide the control-rate steps
+      this.kGain = 1 - Math.exp(-SUB / (fs * 0.012));
+      this.kSoft = 1 - Math.exp(-SUB / (fs * 0.007));   // two stages give gain changes a soft S-curve
+      this.doppler = 1; this.dopplerT = 1; this.directLevel = 1; this.earlyLevel = 1; this.lateLevel = 1;
+      this.inGain = 0; this.inGainT = 1;
+      this.occlusion = 0;
+      this.notchF = 7000; this.notchFT = 7000; this.notchD = 0; this.notchDT = 0;
+      this.rearG = 1; this.rearGT = 1;
+      this.eq3 = 1; this.eq3T = 1; this.eq1 = 1; this.eq1T = 1; this.eq8 = 1; this.eq8T = 1;
+      this.skull = 0; this.skullT = 0; this.roomDuck = 1; this.lateFocus = 1; this.lateTiltT = 0; this.notch2 = 0.6; this.notch2T = 0.6;
+      this.found = [];
+      this.cues = {};
+      this.first = true;
+      this.peak = 0;
+    }
+
+    setDirect(room, S, L, binaural) {
+      const dx = S.x - L.x, dy = S.y - L.y, dz = S.z - L.z;
+      const dist = Math.hypot(dx, dy, dz);
+      const focus = clamp(L.focus ?? 0, 0, 1);   // 0 is pure physics; higher favours clear placement
+      const clarity = (L.clarity ?? 1) * (binaural ? 1 : 0.45) * (1 + 0.25 * focus);
+      const detour = room.detour(S, L);
+      this.occlusion = detour;
+      const shadow = f => clamp(1 / Math.sqrt(1 + 20 * ((2 * detour * f) / C)), 0.006, 1);
+      const t = this.direct, fs = this.fs;
+      t.dT = Math.min(this.maxDelay, (dist / C) * fs);
+      t.glT = shadow(150);
+      t.gmT = shadow(1000) * Math.pow(10, (-0.004 * dist) / 20);
+      t.ghT = shadow(5000) * Math.pow(10, (-0.03 * dist - Math.min(8, 0.05 * focus * dist)) / 20);
+      const c = headCues(dx, dy, dz, L, binaural, fs, this.cues);
+
+      // 1 once the sound is inside the skull, easing in from just outside the skin
+      const edge = clamp((0.26 - dist) / (0.26 - 0.09), 0, 1);
+      const inside = edge * edge * (3 - 2 * edge);
+      const w = inside * clamp(L.skull ?? 1, 0, 1);
+      this.skullT = w;
+      this.roomDuck = 1 - 0.88 * w;
+      this.lateFocus = Math.pow(10, (-8 * focus) / 20);
+      this.lateTiltT = 3 * focus * c.left * (1 - inside);   // the tail leans toward the sound's side
+      const out = 1 - inside;    // directional hearing collapses at the centre of the head
+
+      // Distance to each ear, so close sounds favour the near ear and cross smoothly
+      const yaw = L.yaw || 0, cy = Math.cos(yaw), sy = Math.sin(yaw);
+      const hF = dx * cy + dy * sy + 0.015, hL = -dx * sy + dy * cy, hU = dz;
+      const dEarL = Math.hypot(hF, hL - HEAD_RADIUS, hU), dEarR = Math.hypot(hF, hL + HEAD_RADIUS, hU);
+      const soft = d => Math.sqrt(d * d + 0.0144);
+      const amp = (this.directLevel * (1 - 0.35 * w)) / Math.pow(dist * dist + 0.09, 0.5 * (1 - 0.25 * focus));
+      let panL = c.panL, panR = c.panR;
+      if (binaural) {
+        panL = soft(dist) / soft(dEarL); panR = soft(dist) / soft(dEarR);
+        // Turn down the delayed copy in the opposite ear, more for distant sounds
+        const far = (6 + 6 * clamp((dist - 1) / 5, 0, 1)) * focus * out, side = Math.abs(c.left);
+        const lift = Math.pow(10, (1.2 * focus * side * out) / 20);
+        panL *= lift * Math.pow(10, (-far * Math.max(0, -c.left)) / 20);
+        panR *= lift * Math.pow(10, (-far * Math.max(0, c.left)) / 20);
+        const near = clamp((1 - dist) / 0.75, 0, 1);
+        const itd = c.itd + (((dEarR - dEarL) / C) * fs * 0.5 - c.itd) * near;
+        t.L.extraT = c.maxItd - itd; t.R.extraT = c.maxItd + itd;
+      } else {
+        const wide = Math.sign(c.left) * Math.pow(Math.abs(c.left), 1 - 0.3 * focus);
+        const a = (Math.PI / 4) * (1 + clamp(wide * out, -1, 1));
+        panL = Math.sin(a); panR = Math.cos(a);
+        t.L.extraT = 0; t.R.extraT = 0;
+      }
+      t.L.ampT = amp * panL; t.R.ampT = amp * panR;
+      const K = (fs * HEAD_RADIUS) / C, flat = (1 - K) / (1 + K);
+      t.L.b0T = 1 + (c.b0L - 1) * out; t.L.b1T = flat + (c.b1L - flat) * out;
+      t.R.b0T = 1 + (c.b0R - 1) * out; t.R.b1T = flat + (c.b1R - flat) * out;
+
+      const el = (Math.asin(clamp(c.up, -1, 1)) * 180) / Math.PI;
+      const flatPlane = Math.cos((el * Math.PI) / 180);
+      const fb = c.front;         // +1 ahead, -1 behind
+      const rear = Math.max(0, -fb), ahead = Math.max(0, fb);
+      // Directional bands: 3 kHz reads as ahead, 1 kHz as behind, 8 kHz as above
+      const dB = v => Math.pow(10, (v * clarity * out) / 20);
+      this.eq3T = dB((5.5 * ahead - 8 * rear) * flatPlane);
+      this.eq1T = dB((3.5 * rear - 1.5 * ahead) * flatPlane);
+      this.eq8T = dB(c.up > 0 ? 7 * c.up : 3.5 * c.up);
+      // the pinna notch sits higher and cuts deeper for sounds ahead
+      this.notchFT = clamp(7600 + 3000 * (el / 60) - 1500 * rear, 4800, 12000);
+      this.notchDT = binaural ? clamp(0.62 + 0.3 * fb, 0.15, 0.92) * out : 0;
+      this.notch2T = 0.6 - 0.55 * ahead;   // keeps the top octave open for sounds ahead
+      this.rearGT = Math.pow(10, (-9 * rear * clarity * out) / 20);
+      this.lateDT = t.dT + (room.stats.mfp / C) * fs * 1.5;
+      if (this.first) this.snap();
+    }
+
+    snap() {
+      const t = this.direct;
+      t.d = t.tS = t.tM = t.anchor = Math.max(MIN_DELAY, t.dT); t.xf = 0;
+      t.L.extra = t.L.extraM = t.L.extraT; t.R.extra = t.R.extraM = t.R.extraT;
+      t.gl = t.glM = t.glT; t.gm = t.gmM = t.gmT; t.gh = t.ghM = t.ghT;
+      for (const e of [t.L, t.R]) { e.b0 = e.b0M = e.b0T; e.b1 = e.b1M = e.b1T; }
+      this.notchF = this.notchFT; this.notchD = this.notchDT; this.rearG = this.rearGT;
+      this.lateD = this.lateDT;
+      this.eq3 = this.eq3T; this.eq1 = this.eq1T; this.eq8 = this.eq8T; this.skull = this.skullT;
+      t.L.amp = t.L.ampM = t.L.ampT; t.R.amp = t.R.ampM = t.R.ampT;
+      this.first = false;
+    }
+
+    setReflections(room, S, L, binaural, order, maxTaps) {
+      this.last = [room, S, L, binaural, order, maxTaps];
+      if (this.sleeping) return;
+      const found = room.findReflections(S, L, order, this.found);
+      const existing = new Map();
+      for (const t of this.pool) if (t.active) existing.set(t.key, t);
+      for (const f of found) if (existing.has(f.key)) f.rank *= 1.5;  // hysteresis stops slot flutter
+      found.sort((a, b) => b.rank - a.rank);
+      for (const t of this.pool) t.dying = true;
+      const fs = this.fs, n = Math.min(found.length, maxTaps);
+      for (let i = 0; i < n; i++) {
+        const f = found[i];
+        if (f.dist / C * fs > this.maxDelay) continue;
+        let t = existing.get(f.key), fresh = false;
+        if (!t) {
+          t = this.pool.find(p => !p.active);
+          if (!t) continue;
+          fresh = true;
+          t.active = true; t.key = f.key;
+          t.L.lp1 = t.L.lp2 = t.L.shX = t.L.shY = t.R.lp1 = t.R.lp2 = t.R.shX = t.R.shY = 0;
+          t.L.amp = t.R.amp = t.L.ampM = t.R.ampM = 0;
+        }
+        t.dying = false;
+        t.order = f.order; t.pts = f.pts;
+        // Real surfaces scatter treble far more than bass, and more with every bounce
+        // Reflections landing right behind the direct sound are what comb against it, so they scatter most
+        const lag = (f.dist - Math.hypot(S.x - L.x, S.y - L.y, S.z - L.z)) / C;
+        const near = clamp(lag / 0.012, 0.3, 1), keep = near * near;
+        const sL = 1 - Math.pow(0.8, f.order) * keep, sM = 1 - Math.pow(0.3, f.order) * keep, sH = 1 - Math.pow(0.1, f.order) * keep;
+        t.spLT = Math.sqrt(1 - sL); t.spMT = Math.sqrt(1 - sM); t.spHT = Math.sqrt(1 - sH);
+        t.scLT = Math.sqrt(sL); t.scMT = Math.sqrt(sM); t.scHT = Math.sqrt(sH);
+        if (fresh) { t.spL = t.spLT; t.spM = t.spMT; t.spH = t.spHT; t.scL = t.scLT; t.scM = t.scMT; t.scH = t.scHT; }
+        t.dT = (f.dist / C) * fs;
+        const air = f.dist;
+        const c = headCues(f.ax - L.x, f.ay - L.y, f.az - L.z, L, binaural, fs, this.cues);
+        const shade = Math.pow(10, (-6 * Math.max(0, -c.front) * (L.clarity ?? 1) * (binaural ? 1 : 0.45)) / 20);
+        t.glT = f.gl; t.gmT = f.gm * Math.pow(10, (-0.004 * air) / 20); t.ghT = f.gh * Math.pow(10, (-0.03 * air) / 20) * shade;
+        const focus = clamp(L.focus ?? 0, 0, 1);
+        const sx = S.x - L.x, sy = S.y - L.y, sz = S.z - L.z, sm = Math.hypot(sx, sy, sz) || 1;
+        const rx = f.ax - L.x, ry = f.ay - L.y, rz = f.az - L.z, rm = Math.hypot(rx, ry, rz) || 1;
+        const agree = (sx * rx + sy * ry + sz * rz) / (sm * rm);   // reflections from the wrong side blur the image
+        const amp = ((this.earlyLevel * this.roomDuck) / Math.max(f.dist, 0.3)) * Math.pow(10, (-(3 + 3 * (1 - agree)) * focus) / 20);
+        t.level = f.gm / Math.max(f.dist, 0.3);
+        const farTap = binaural ? (6 + 6 * clamp((f.dist - 1) / 5, 0, 1)) * focus : 0;
+        t.L.ampT = amp * c.panL * Math.pow(10, (-farTap * Math.max(0, -c.left)) / 20);
+        t.R.ampT = amp * c.panR * Math.pow(10, (-farTap * Math.max(0, c.left)) / 20);
+        t.L.b0T = c.b0L; t.L.b1T = c.b1L; t.R.b0T = c.b0R; t.R.b1T = c.b1R;
+        t.L.extraT = c.itdL; t.R.extraT = c.itdR;
+        if (fresh) {
+          t.d = t.tS = t.tM = t.anchor = Math.max(MIN_DELAY, t.dT); t.xf = 0;
+          t.gl = t.glM = t.glT; t.gm = t.gmM = t.gmT; t.gh = t.ghM = t.ghT;
+          t.L.extra = t.L.extraM = t.L.extraT; t.R.extra = t.R.extraM = t.R.extraT;
+          for (const e of [t.L, t.R]) { e.b0 = e.b0M = e.b0T; e.b1 = e.b1M = e.b1T; }
+        }
+      }
+      for (const t of this.pool) if (t.active && t.dying) { t.L.ampT = 0; t.R.ampT = 0; }
+    }
+
+    /* Pitch bend. The read position moves at exactly `doppler` times the physical rate.
+       Whatever timing error that leaves is removed by short crossfades between two read heads. */
+    stepTap(t, n) {
+      const a = this.doppler, free = t.xf <= 0;
+      let jump = false;
+      if (Math.abs(t.dT - t.tS) > this.jumpRange && free) { t.tS = t.tM = t.dT; t.anchor = t.dT; jump = true; }
+      else { t.tM += (t.dT - t.tM) * this.kPath; t.tS += (t.tM - t.tS) * this.kPath; }
+      if (Math.abs(a - 1) < 1e-4) t.anchor = t.tS;
+      else if (Math.abs(t.tS - t.anchor) > (t === this.direct ? this.anchorRange : this.anchorRange * 3) && free) { t.anchor = t.tS; jump = true; }
+      const v = clamp(t.anchor + a * (t.tS - t.anchor), MIN_DELAY, this.maxDelay);
+      t.xf0 = t.xf;
+      if (jump) { t.off = t.d - v; t.xf0 = 1; t.start = v; t.step = 0; }
+      else { t.start = t.d; t.step = (v - t.d) / n; }
+      t.d = v;
+      t.xf = Math.max(0, t.xf0 - n / this.xfLen);
+      const k = this.kSoft;
+      t.gl0 = t.gl; t.gm0 = t.gm; t.gh0 = t.gh;
+      t.spL += (t.spLT - t.spL) * k; t.spM += (t.spMT - t.spM) * k; t.spH += (t.spHT - t.spH) * k;
+      t.scL += (t.scLT - t.scL) * k; t.scM += (t.scMT - t.scM) * k; t.scH += (t.scHT - t.scH) * k;
+      t.glM += (t.glT - t.glM) * k; t.gmM += (t.gmT - t.gmM) * k; t.ghM += (t.ghT - t.ghM) * k;
+      t.gl += (t.glM - t.gl) * k; t.gm += (t.gmM - t.gm) * k; t.gh += (t.ghM - t.gh) * k;
+      for (const e of [t.L, t.R]) {
+        e.amp0 = e.amp; e.b00 = e.b0; e.b10 = e.b1;
+        e.ampM += (e.ampT - e.ampM) * k;
+        e.amp += (e.ampM - e.amp) * k;
+        e.b0M += (e.b0T - e.b0M) * k; e.b1M += (e.b1T - e.b1M) * k;
+        e.b0 += (e.b0M - e.b0) * k; e.b1 += (e.b1M - e.b1) * k;
+        e.x0 = e.extra;
+        e.extraM += (e.extraT - e.extraM) * k;
+        e.extra += clamp((e.extraM - e.extra) * k, -0.2 * n, 0.2 * n);
+      }
+    }
+
+    readCubic(rp) {
+      const b = this.buf, mask = this.mask, i = Math.floor(rp), f = rp - i;
+      const xm = b[(i - 1) & mask], x0 = b[i & mask], x1 = b[(i + 1) & mask], x2 = b[(i + 2) & mask];
+      return ((((0.5 * (x2 - xm) + 1.5 * (x0 - x1)) * f + (xm - 2.5 * x0 + 2 * x1 - 0.5 * x2)) * f + 0.5 * (x1 - xm)) * f) + x0;
+    }
+
+    readSinc(rp) {
+      const b = this.buf, mask = this.mask, i = Math.floor(rp), p = (rp - i) * SINC_PHASES, j = Math.floor(p), m = p - j;
+      const h0 = j * SINC_TAPS; let o = 0;
+      for (let k = 0; k < SINC_TAPS; k++) o += b[(i - 5 + k) & mask] * (SINC[h0 + k] + m * (SINC[h0 + SINC_TAPS + k] - SINC[h0 + k]));
+      return o;
+    }
+
+    renderEar(t, e, out, bus, n) {
+      const { spL, spM, spH, scL, scM, scH } = t;
+      const a1 = this.a1, c1 = this.c1, c2 = this.c2;
+      const dStep = t.step + (e.extra - e.x0) / n, aStep = (e.amp - e.amp0) / n;
+      let d = t.start + e.x0, amp = e.amp0, lp1 = e.lp1, lp2 = e.lp2, shX = e.shX, shY = e.shY;
+      let gl = t.gl0, gm = t.gm0, gh = t.gh0, b0 = e.b00, b1 = e.b10; const off = t.off;
+      const dl = (t.gl - gl) / n, dm = (t.gm - gm) / n, dh = (t.gh - gh) / n, db0 = (e.b0 - b0) / n, db1 = (e.b1 - b1) / n;
+      let xf = t.xf0; const dx = (t.xf - t.xf0) / n, fading = t.xf0 > 0;
+      let w = this.w;
+      for (let s = 0; s < n; s++) {
+        d += dStep; amp += aStep; gl += dl; gm += dm; gh += dh; b0 += db0; b1 += db1;
+        let x = this.readCubic(w - d);
+        if (fading) { xf += dx; const g = xf * xf * (3 - 2 * xf); x += g * (this.readCubic(w - d - off) - x); }
+        lp1 += c1 * (x - lp1); lp2 += c2 * (x - lp2);
+        const low = gl * lp1, mid = gm * (lp2 - lp1), high = gh * (x - lp2);
+        const v = spL * low + spM * mid + spH * high;
+        const y = b0 * v + b1 * shX - a1 * shY;
+        shX = v; shY = y;
+        out[s] += y * amp;
+        bus[s] += (scL * low + scM * mid + scH * high) * amp;
+        w++;
+      }
+      e.lp1 = lp1; e.lp2 = lp2; e.shX = shX; e.shY = shY;
+    }
+
+    renderDirectEar(t, e, out, n) {
+      const b = this.buf, mask = this.mask, a1 = this.a1, c1 = this.c1, c2 = this.c2, fs = this.fs;
+      const dStep = t.step + (e.extra - e.x0) / n, aStep = (e.amp - e.amp0) / n;
+      let d = t.start + e.x0, amp = e.amp0, lp1 = e.lp1, lp2 = e.lp2, shX = e.shX, shY = e.shY;
+      let s1 = e.s1, s2 = e.s2, s3 = e.s3, s4 = e.s4, rear = e.rear;
+      let gl = t.gl0, gm = t.gm0, gh = t.gh0, b0 = e.b00, b1 = e.b10; const off = t.off;
+      const dl = (t.gl - gl) / n, dm = (t.gm - gm) / n, dh = (t.gh - gh) / n, db0 = (e.b0 - b0) / n, db1 = (e.b1 - b1) / n;
+      let xf = t.xf0; const dx = (t.xf - t.xf0) / n, fading = t.xf0 > 0;
+      const g1 = Math.tan(Math.min(this.notchF, fs * 0.45) * Math.PI / fs), g2 = Math.tan(Math.min(this.notchF * 1.46, fs * 0.45) * Math.PI / fs);
+      const R1 = 0.22, R2 = 0.3, h1 = 1 / (1 + 2 * R1 * g1 + g1 * g1), h2 = 1 / (1 + 2 * R2 * g2 + g2 * g2);
+      const depth = this.notchD, notch2 = this.notch2, rearG = this.rearG, cRear = this.cRear;
+      const eq = e.eq, A3 = this.eq3 - 1, A1 = this.eq1 - 1, A8 = this.eq8 - 1;
+      const g3 = this.g3, g10 = this.g10, g8 = this.g8;
+      const R3 = 0.42, R10 = 0.4, R8 = 0.35;
+      const h3 = 1 / (1 + 2 * R3 * g3 + g3 * g3), h10 = 1 / (1 + 2 * R10 * g10 + g10 * g10), h8 = 1 / (1 + 2 * R8 * g8 + g8 * g8);
+      const sk = e.sk, skull = this.skull, dry = 1 - skull, cS1 = this.cSk1, cS2 = this.cSk2;
+      const right = e === t.R, gA = right ? this.gSkA2 : this.gSkA1, gB = right ? this.gSkB2 : this.gSkB1;
+      const RA = 0.11, RB = 0.09, hA = 1 / (1 + 2 * RA * gA + gA * gA), hB = 1 / (1 + 2 * RB * gB + gB * gB);
+      let w = this.w;
+      for (let s = 0; s < n; s++) {
+        d += dStep; amp += aStep; gl += dl; gm += dm; gh += dh; b0 += db0; b1 += db1;
+        const rp = w - d;
+        let x = this.readSinc(rp);
+        if (fading) { xf += dx; const g = xf * xf * (3 - 2 * xf); x += g * (this.readSinc(rp - off) - x); }
+        const raw = x;
+        lp1 += c1 * (x - lp1); lp2 += c2 * (x - lp2);
+        let v = gl * lp1 + gm * (lp2 - lp1) + gh * (x - lp2);
+        const y0 = b0 * v + b1 * shX - a1 * shY;
+        shX = v; shY = y0;
+        v = y0;
+        let hp = (v - (2 * R1 + g1) * s1 - s2) * h1, bp = g1 * hp + s1;
+        s1 = g1 * hp + bp; let lp = g1 * bp + s2; s2 = g1 * bp + lp;
+        v -= depth * 2 * R1 * bp;
+        hp = (v - (2 * R2 + g2) * s3 - s4) * h2; bp = g2 * hp + s3;
+        s3 = g2 * hp + bp; lp = g2 * bp + s4; s4 = g2 * bp + lp;
+        v -= depth * notch2 * 2 * R2 * bp;
+        rear += cRear * (v - rear);
+        v = rear + rearG * (v - rear);
+        let p = (v - (2 * R3 + g3) * eq[0] - eq[1]) * h3, q = g3 * p + eq[0];
+        eq[0] = g3 * p + q; let l = g3 * q + eq[1]; eq[1] = g3 * q + l;
+        v += A3 * 2 * R3 * q;
+        p = (v - (2 * R10 + g10) * eq[2] - eq[3]) * h10; q = g10 * p + eq[2];
+        eq[2] = g10 * p + q; l = g10 * q + eq[3]; eq[3] = g10 * q + l;
+        v += A1 * 2 * R10 * q;
+        p = (v - (2 * R8 + g8) * eq[4] - eq[5]) * h8; q = g8 * p + eq[4];
+        eq[4] = g8 * p + q; l = g8 * q + eq[5]; eq[5] = g8 * q + l;
+        v += A8 * 2 * R8 * q;
+        if (skull > 0.0005) {
+          sk[0] += cS1 * (raw - sk[0]); sk[1] += cS1 * (sk[0] - sk[1]);
+          sk[2] += cS2 * (raw - sk[2]);
+          p = (raw - (2 * RA + gA) * sk[3] - sk[4]) * hA; q = gA * p + sk[3];
+          sk[3] = gA * p + q; l = gA * q + sk[4]; sk[4] = gA * q + l;
+          const resA = 2 * RA * q;
+          p = (raw - (2 * RB + gB) * sk[5] - sk[6]) * hB; q = gB * p + sk[5];
+          sk[5] = gB * p + q; l = gB * q + sk[6]; sk[6] = gB * q + l;
+          const resB = 2 * RB * q;
+          v = dry * v + skull * (0.62 * sk[1] + 0.95 * sk[2] + 0.6 * resA + 0.34 * resB);
+        }
+        out[s] += v * amp;
+        w++;
+      }
+      e.lp1 = lp1; e.lp2 = lp2; e.shX = shX; e.shY = shY;
+      e.s1 = s1; e.s2 = s2; e.s3 = s3; e.s4 = s4; e.rear = rear;
+    }
+
+    /* Silent voices clear their state and stop computing until sound returns */
+    sleep() {
+      this.sleeping = true;
+      this.buf.fill(0);
+      this.late = new LateReverb(this.fs);
+      if (this.last) this.late.setRoom(this.last[0].stats, this.last[3]);
+      for (const t of this.pool) t.active = false;
+      for (const a of [...this.scatterL, ...this.scatterR]) a.b.fill(0);
+      for (const e of [this.direct.L, this.direct.R]) { e.lp1 = e.lp2 = e.shX = e.shY = e.s1 = e.s2 = e.s3 = e.s4 = e.rear = 0; e.eq.fill(0); e.sk.fill(0); }
+      this.first = true;
+    }
+    wake() {
+      this.sleeping = false; this.quietIn = 0; this.quietOut = 0;
+      if (this.last) { const [r, S, L, b, o, m] = this.last; this.setDirect(r, S, L, b); this.setReflections(r, S, L, b, o, m); }
+    }
+
+    renderBlock() {
+      const m = SUB, tmpL = this.outFL, tmpR = this.outFR, input = this.inF;
+      let inPeak = 0;
+      for (let s = 0; s < m; s++) { const a = Math.abs(input[s]); if (a > inPeak) inPeak = a; }
+      if (this.sleeping) {
+        if (inPeak * this.inGainT < 1e-9) { tmpL.fill(0); tmpR.fill(0); return; }
+        this.wake();
+      }
+      const g0 = this.inGain;
+      this.inGain += (this.inGainT - this.inGain) * this.kGain;
+      const dg = (this.inGain - g0) / m;
+      let g = g0;
+      for (let s = 0; s < m; s++) { g += dg; this.buf[(this.w + s) & this.mask] = input[s] * g; }
+      const k = this.kGain;
+      this.doppler += (this.dopplerT - this.doppler) * k;
+      this.notchF += (this.notchFT - this.notchF) * k; this.notchD += (this.notchDT - this.notchD) * k;
+      this.rearG += (this.rearGT - this.rearG) * k;
+      this.eq3 += (this.eq3T - this.eq3) * k; this.eq1 += (this.eq1T - this.eq1) * k; this.eq8 += (this.eq8T - this.eq8) * k;
+      this.skull += (this.skullT - this.skull) * k;
+      this.notch2 += (this.notch2T - this.notch2) * k;
+
+      tmpL.fill(0); tmpR.fill(0); this.busL.fill(0); this.busR.fill(0);
+      this.stepTap(this.direct, m);
+      this.renderDirectEar(this.direct, this.direct.L, tmpL, m);
+      this.renderDirectEar(this.direct, this.direct.R, tmpR, m);
+      for (const t of this.pool) {
+        if (!t.active) continue;
+        this.stepTap(t, m);
+        this.renderEar(t, t.L, tmpL, this.busL, m);
+        this.renderEar(t, t.R, tmpR, this.busR, m);
+        if (t.dying && t.L.amp < 2e-5 && t.R.amp < 2e-5) t.active = false;
+      }
+      for (const [bus, chain, out] of [[this.busL, this.scatterL, tmpL], [this.busR, this.scatterR, tmpR]]) {
+        for (let s = 0; s < m; s++) {
+          let x = bus[s];
+          for (let c = 0; c < chain.length; c++) {
+            const a = chain[c], d = a.b[a.i], v = x + 0.6 * d;
+            a.b[a.i] = v; x = d - 0.6 * v;
+            if (++a.i >= a.b.length) a.i = 0;
+          }
+          out[s] += x;
+        }
+      }
+      this.lateD += clamp((this.lateDT - this.lateD) * this.kDelay, -0.3 * m, 0.3 * m);
+      const lateIn = this.lateIn;
+      for (let s = 0; s < m; s++) {
+        const rp = this.w + s - this.lateD, i = Math.floor(rp), f = rp - i;
+        lateIn[s] = this.buf[i & this.mask] * (1 - f) + this.buf[(i + 1) & this.mask] * f;
+      }
+      this.late.process(lateIn, tmpL, tmpR, m, this.lateLevel * this.roomDuck * this.lateFocus, this.lateTiltT);
+      const o0 = this.outGain;
+      this.outGain += clamp(this.outGainT - this.outGain, -m / (this.fs * 0.03), m / (this.fs * 0.03));
+      const dO = (this.outGain - o0) / m;
+      let og = o0, outPeak = 0;
+      for (let s = 0; s < m; s++) {
+        og += dO; tmpL[s] *= og; tmpR[s] *= og;
+        const a = Math.max(Math.abs(tmpL[s]), Math.abs(tmpR[s]));
+        if (a > outPeak) outPeak = a;
+      }
+      if (outPeak > this.peak) this.peak = outPeak;
+      this.w = (this.w + m) & this.mask;
+      this.quietIn = inPeak * this.inGain < 1e-9 ? this.quietIn + m : 0;
+      this.quietOut = outPeak < 1e-7 ? this.quietOut + m : 0;
+      if (this.quietIn > this.fs * 0.25 && this.quietOut > this.fs * 0.25) this.sleep();
+    }
+
+    /* input is mono; output is mixed into outL and outR. Any host block size gives identical
+       audio because the engine always runs on fixed 32-sample blocks (32 samples of latency). */
+    process(input, outL, outR, n) {
+      const R = this.dcR;
+      for (let i = 0; i < n; i++) {
+        let x = input ? input[i] : 0;
+        if (!(x === x) || x === Infinity || x === -Infinity) x = 0;       // never let bad samples in
+        x = x > 4 ? 4 : x < -4 ? -4 : x;
+        if (x > -1e-15 && x < 1e-15) x = 0;
+        const y = x - this.dcX + R * this.dcY;                            // removes DC offset
+        this.dcX = x; this.dcY = y > -1e-20 && y < 1e-20 ? 0 : y;
+        const p = this.fifo;
+        outL[i] += this.outFL[p]; outR[i] += this.outFR[p];
+        this.inF[p] = y;
+        if (++this.fifo === SUB) { this.fifo = 0; this.renderBlock(); }
+      }
+    }
+  }
+
+  /* Stereo-linked look-ahead limiter: a safety ceiling for anything thrown at the engine */
+  class Limiter {
+    constructor(fs, ceiling = 0.97) {
+      this.ceiling = ceiling;
+      this.len = Math.max(8, Math.round(fs * 0.0015));
+      this.dL = new Float32Array(this.len); this.dR = new Float32Array(this.len);
+      this.hold = new Float32Array(this.len).fill(1); this.box = new Float32Array(this.len).fill(1);
+      this.i = 0; this.sum = this.len; this.env = 1;
+      this.rel = 1 - Math.exp(-1 / (fs * 0.12));
+    }
+    process(L, R, n) {
+      const len = this.len, c = this.ceiling;
+      for (let s = 0; s < n; s++) {
+        const a = Math.max(Math.abs(L[s]), Math.abs(R[s]));
+        const want = a > c ? c / a : 1;
+        const i = this.i;
+        this.hold[i] = want;
+        let low = 1; for (let k = 0; k < len; k++) if (this.hold[k] < low) low = this.hold[k];
+        this.env = low < this.env ? low : this.env + (low - this.env) * this.rel;
+        this.sum += this.env - this.box[i]; this.box[i] = this.env;
+        const g = Math.min(1, this.sum / len);
+        const xl = this.dL[i], xr = this.dR[i];
+        this.dL[i] = L[s]; this.dR[i] = R[s];
+        L[s] = clamp(xl * g, -c, c); R[s] = clamp(xr * g, -c, c);
+        this.i = i + 1 === len ? 0 : i + 1;
+      }
+    }
+  }
+
+  /* ----------------------------------------------------------- built-in sounds */
+  function renderLoop(type, bpm, fs) {
+    const beat = (60 / bpm) * fs, bars = 2, len = Math.round(beat * 4 * bars);
+    const out = new Float32Array(len);
+    let seed = 22222;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 1073741823.5 - 1);
+    const at = b => Math.round(b * beat);
+    const put = (start, n, fn) => { for (let i = 0; i < n; i++) out[(start + i) % len] += fn(i / fs, i); };
+
+    if (type === 'drums') {
+      const kick = b => put(at(b), fs * 0.3, t => 0.9 * Math.exp(-t * 16) * Math.sin(TAU * (48 * t + 3.4 * (1 - Math.exp(-t * 34)))));
+      const snare = b => { let lp = 0; put(at(b), fs * 0.24, t => { const n = rnd(); lp += 0.55 * (n - lp); return 0.42 * Math.exp(-t * 20) * (n - lp) + 0.3 * Math.exp(-t * 30) * Math.sin(TAU * 196 * t); }); };
+      const hat = (b, v) => { let lp = 0; put(at(b), fs * 0.05, t => { const n = rnd(); lp += 0.8 * (n - lp); return v * Math.exp(-t * 110) * (n - lp); }); };
+      for (let b = 0; b < 8; b += 2) { kick(b); snare(b + 1); }
+      kick(2.5); kick(6.5); kick(7.5);
+      for (let b = 0; b < 8; b += 0.5) hat(b, b % 1 ? 0.2 : 0.34);
+    } else if (type === 'shaker') {
+      for (let b = 0; b < 8; b += 0.25) {
+        const v = b % 1 === 0 ? 0.55 : b % 0.5 === 0 ? 0.32 : 0.2;
+        let lp = 0;
+        put(at(b), fs * 0.09, t => { const n = rnd(); lp += 0.5 * (n - lp); return v * Math.min(t * 500, 1) * Math.exp(-t * 48) * (n - lp); });
+      }
+    } else if (type === 'pluck') {
+      const notes = [57, 64, 69, 72, 76, 72, 69, 64, 53, 60, 65, 69, 72, 69, 65, 60];
+      notes.forEach((m, i) => {
+        const period = Math.round(fs / (440 * Math.pow(2, (m - 69) / 12)));
+        const ring = new Float32Array(period);
+        for (let j = 0; j < period; j++) ring[j] = rnd();
+        let p = 0, prev = 0;
+        put(at(i * 0.5), fs * 1.1, () => { const v = ring[p]; const nx = 0.996 * 0.5 * (v + prev); prev = v; ring[p] = nx; p = (p + 1) % period; return v * 0.42; });
+      });
+    } else if (type === 'voice') {
+      const vowels = [[730, 1090, 2440], [270, 2290, 3010], [300, 870, 2240], [530, 1840, 2480]];
+      const notes = [52, 55, 59, 57];
+      notes.forEach((m, n) => {
+        const f0 = 440 * Math.pow(2, (m - 69) / 12), dur = Math.round(beat * 2), st = at(n * 2);
+        const fil = vowels[n].map(f => ({ f, a: 0, b: 0 }));
+        let ph = 0;
+        for (let i = 0; i < dur; i++) {
+          const t = i / fs, vib = 1 + 0.008 * Math.sin(TAU * 5.2 * t) * Math.min(t * 2, 1);
+          ph += (f0 * vib) / fs; if (ph > 1) ph -= 1;
+          const src = 2 * ph - 1 + 0.03 * rnd();
+          let v = 0;
+          fil.forEach((q, k) => {
+            const g = 2 * Math.sin((Math.PI * q.f) / fs), Q = 0.09;
+            const hp = src - q.b - Q * q.a; q.a += g * hp; q.b += g * q.a;
+            v += q.a / (k + 1);
+          });
+          const env = Math.min(i / (fs * 0.05), 1) * Math.min((dur - i) / (fs * 0.09), 1);
+          out[(st + i) % len] += v * env * 0.16;
+        }
+      });
+    } else if (type === 'clicks') {
+      for (let b = 0; b < 8; b += 1) put(at(b), Math.round(fs * 0.004), (t, i) => 0.85 * Math.exp(-i / (fs * 0.0007)) * (i % 2 ? -1 : 1));
+    } else {
+      let b0 = 0, b1 = 0, b2 = 0;
+      for (let b = 0; b < 8; b += 2) put(at(b), Math.round(beat * 1.4), (t, i) => {
+        const w = rnd(); b0 = 0.99765 * b0 + w * 0.099046; b1 = 0.963 * b1 + w * 0.2965164; b2 = 0.57 * b2 + w * 1.0526913;
+        const edge = Math.min(i / (fs * 0.01), (beat * 1.4 - i) / (fs * 0.01), 1);
+        return 0.16 * (b0 + b1 + b2 + w * 0.1848) * edge;
+      });
+    }
+    return out;
+  }
+
+  /* -------------------------------------------------------------------- engine */
+  class Engine {
+    constructor(fs) {
+      this.fs = fs;
+      this.voices = new Map();
+      this.loops = new Map();
+      this.scene = null;
+      this.room = null;
+      this.playing = false;
+      this.beat = 0;
+      this.sample = 0;
+      this.counter = 0;
+      this.robin = 0;
+      this.inputBuf = new Float32Array(CONTROL);
+      this.binaural = true;
+      this.limiter = new Limiter(fs);
+    }
+    get spb() { return (60 / this.scene.bpm) * this.fs; }
+    setLoop(id, data) { this.loops.set(id, data); }
+    setTransport(playing, beat) {
+      this.playing = playing;
+      if (beat != null) { this.beat = beat; if (this.scene) this.sample = Math.round(beat * this.spb); }
+    }
+    setScene(scene) {
+      const tempoChanged = this.scene && this.scene.bpm !== scene.bpm;
+      this.scene = scene;
+      if (tempoChanged) this.sample = Math.round(this.beat * this.spb);
+      this.room = new SharedRoom(scene.room);
+      this.binaural = scene.output !== 'speakers';
+      const anySolo = scene.tracks.some(t => t.solo);
+      const keep = new Set();
+      for (const t of scene.tracks) {
+        keep.add(t.id);
+        let v = this.voices.get(t.id);
+        if (!v) { v = new Voice(this.fs, t.id); this.voices.set(t.id, v); v.doppler = clamp(t.doppler, 0, 2); }
+        v.track = t;
+        v.outGainT = 1;
+        v.dopplerT = clamp(t.doppler, 0, 2);
+        v.directLevel = t.direct; v.earlyLevel = t.early; v.lateLevel = t.late;
+        v.inGainT = t.mute || (anySolo && !t.solo) ? 0 : t.gain;
+        v.late.setRoom(this.room.stats, this.binaural);
+      }
+      // removed tracks fade out instead of cutting off
+      for (const [id, v] of this.voices) if (!keep.has(id)) { v.outGainT = 0; v.inGainT = 0; }
+      this.control(true);
+    }
+    control(all) {
+      if (!this.room) return;
+      const L = this.scene.listener, list = [...this.voices.values()];
+      const order = clamp(this.scene.quality?.order ?? 2, 1, 3), taps = clamp(this.scene.quality?.taps ?? 16, 4, 28);
+      list.forEach((v, i) => {
+        if (v.outGainT === 0) return;
+        evalPath(v.track.motion, this.beat, v.pos);
+        v.pos.z = clamp(v.pos.z, 0.05, this.room.height - 0.05);  // curves may overshoot between keys
+        v.setDirect(this.room, v.pos, L, this.binaural);
+        if (all || i === this.robin % list.length) v.setReflections(this.room, v.pos, L, this.binaural, order, taps);
+      });
+      this.robin++;
+    }
+    process(outL, outR, n) {
+      outL.fill(0, 0, n); outR.fill(0, 0, n);
+      if (!this.room) return;
+      const spb = this.spb;
+      let off = 0;
+      while (off < n) {
+        if (this.counter <= 0) { this.control(false); this.counter = CONTROL; }
+        const m = Math.min(n - off, this.counter, CONTROL);
+        const L = outL.subarray(off, off + m), R = outR.subarray(off, off + m);
+        for (const [id, v] of this.voices) {
+          const loop = this.loops.get(v.id);
+          const inp = this.inputBuf;
+          if (this.playing && loop && loop.length) {
+            for (let i = 0; i < m; i++) inp[i] = loop[(this.sample + i) % loop.length];
+          } else inp.fill(0, 0, m);
+          v.process(inp, L, R, m);
+          if (v.outGainT === 0 && v.outGain <= 0) this.voices.delete(id);
+        }
+        if (this.playing) { this.sample += m; this.beat = this.sample / spb; }
+        off += m;
+        this.counter -= m;
+      }
+      this.limiter.process(outL, outR, n);
+    }
+    telemetry() {
+      const voices = [];
+      for (const v of this.voices.values()) {
+        const rays = [];
+        for (const t of v.pool) if (t.active && !t.dying && t.pts) rays.push({ p: t.pts, o: t.order, l: t.level });
+        voices.push({ id: v.id, x: v.pos.x, y: v.pos.y, z: v.pos.z, occ: v.occlusion, peak: v.peak, rays });
+        v.peak = 0;
+      }
+      return { beat: this.beat, voices };
+    }
+  }
+
+  return { Engine, Voice, Limiter, SharedRoom, LateReverb, analyzeRoom, evalPath, pathPhase, renderLoop, headCues, MATERIALS, pointInPoly, signedArea, obstacleCorners, BEATS_PER_BAR, C };
+}
+if (typeof module !== 'undefined') module.exports = RoomwalkerDSP;
+</script>
+<script>(function () {
+'use strict';
+const D = RoomwalkerDSP();
+const $ = id => document.getElementById(id);
+const clone = o => JSON.parse(JSON.stringify(o));
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const snap = (v, s) => Math.round(v / s) * s;
+const INKS = ['#f4b860', '#ff9580', '#7fe3c6', '#f3a9dc', '#ece27c', '#c8c3ff'];
+const SOUNDS = { drums: 'Drum loop', shaker: 'Shaker', pluck: 'Plucked strings', voice: 'Vowel voice', clicks: 'Clicks (reverb test)', noise: 'Pink noise bursts', file: 'Load audio file...' };
+const PLUGIN = window.__RW_PLUGIN || null;   // set when this page is the window of the VST3 plugin
+const MAX_TRACKS = PLUGIN ? 32 : 6, MAX_VERTS = 16;
+
+const poly = (pts, mats) => pts.map((p, i) => ({ x: p[0], y: p[1], mat: Array.isArray(mats) ? mats[i % mats.length] : mats }));
+const PRESETS = {
+  loft: { name: 'L-shaped loft', room: { height: 3.6, decay: 1, floor: 'hardwood', ceiling: 'plaster', verts: poly([[0, 0], [12, 0], [12, 6], [6.5, 6], [6.5, 11], [0, 11]], ['brick', 'glass', 'drywall', 'drywall', 'brick', 'brick']), obstacles: [{ x: 3.4, y: 5.6, w: 0.7, d: 0.7, h: 3.6, rot: 0, mat: 'concrete' }] }, listener: { x: 3.4, y: 3, z: 1.6, yaw: 0.2 } },
+  studio: { name: 'Treated studio', room: { height: 3, decay: 1, floor: 'carpet', ceiling: 'foam', verts: poly([[0, 0], [7, 0], [7, 5.5], [0, 5.5]], ['drywall', 'curtain', 'wood', 'curtain']), obstacles: [] }, listener: { x: 3.5, y: 2.6, z: 1.2, yaw: 0 } },
+  chapel: { name: 'Stone chapel', room: { height: 11, decay: 1, floor: 'stone', ceiling: 'stone', verts: poly([[7, 0], [13, 0], [13, 8], [20, 8], [20, 14], [13, 14], [13, 24], [7, 24], [7, 14], [0, 14], [0, 8], [7, 8]], 'stone'), obstacles: [{ x: 7.6, y: 7.4, w: 1, d: 1, h: 11, rot: 0, mat: 'stone' }, { x: 12.4, y: 7.4, w: 1, d: 1, h: 11, rot: 0, mat: 'stone' }, { x: 7.6, y: 14.6, w: 1, d: 1, h: 11, rot: 0, mat: 'stone' }, { x: 12.4, y: 14.6, w: 1, d: 1, h: 11, rot: 0, mat: 'stone' }] }, listener: { x: 10, y: 5, z: 1.6, yaw: 1.57 } },
+  cave: { name: 'Limestone cave', room: { height: 7, decay: 1, floor: 'rock', ceiling: 'rock', verts: poly([[2, 1], [9, 0], [15, 2.5], [18, 8], [14, 12], [15, 17], [8, 19], [3, 15], [5, 10], [0, 6]], 'rock'), obstacles: [{ x: 9, y: 9, w: 2.2, d: 1.5, h: 5, rot: 0.6, mat: 'rock' }] }, listener: { x: 7, y: 4.5, z: 1.6, yaw: 1 } },
+  tunnel: { name: 'Tiled tunnel', room: { height: 3.2, decay: 1, floor: 'concrete', ceiling: 'tile', verts: poly([[0, 0], [30, 0], [30, 3.6], [0, 3.6]], 'tile'), obstacles: [] }, listener: { x: 8, y: 1.8, z: 1.6, yaw: 0 } }
+};
+
+const key = (t, x, y, z, ease) => ({ t, x, y, z, ease: ease || 'linear' });
+function makeTrack(id, name, sound, keys, bars, extra) {
+  return Object.assign({ id, name, sound, gain: 0.45, mute: false, solo: false, direct: 1, early: 1, late: 1, doppler: 0.5,
+    motion: { mode: 'tempo', bars, loop: 'loop', auto: 0, curve: true, keys } }, extra);
+}
+function defaultScene() {
+  const p = PRESETS.loft;
+  return { version: 1, bpm: 112, output: 'binaural', preset: 'loft', quality: { order: 2, taps: 16 }, room: clone(p.room), listener: { ...clone(p.listener), clarity: 1, skull: 1, focus: 0.8 },
+    tracks: [
+      makeTrack(1, 'Shaker', 'shaker', [key(0, 5.6, 3, 2.5), key(2, 3.4, 5, 1.4), key(4, 1.2, 3, 0.8), key(6, 3.4, 1, 2)], 2, { gain: 0.4 }),
+      makeTrack(2, 'Strings', 'pluck', [key(0, 10.5, 3, 1.6, 'smooth'), key(6, 6.5, 4.5, 1.8, 'smooth'), key(10, 3, 8.5, 2.2, 'smooth'), key(14, 1.5, 9.5, 1.6, 'smooth')], 4, { motion: { mode: 'tempo', bars: 4, loop: 'pingpong', auto: 0, curve: true, keys: [key(0, 10.5, 3, 1.6, 'smooth'), key(6, 6.5, 4.5, 1.8, 'smooth'), key(10, 3, 8.5, 2.2, 'smooth'), key(14, 1.5, 9.5, 1.6, 'smooth')] } }),
+      makeTrack(3, 'Drums', 'drums', [key(0, 5.4, 1.6, 1)], 4, { gain: 0.36, late: 0.8 })
+    ] };
+}
+
+let scene = PLUGIN ? PLUGIN.scene : defaultScene();
+if (!PLUGIN) try {
+  const saved = JSON.parse(localStorage.getItem('roomwalker.scene.v2') || 'null');
+  if (validScene(saved)) { scene = saved; scene.listener.focus ??= 0.8; }
+} catch (e) { /* storage may be unavailable */ }
+
+let room = new D.SharedRoom(scene.room);
+let selTrack = PLUGIN ? PLUGIN.ownId : scene.tracks[0].id, selKey = null, roomSel = null, tab = 'track';
+let beat = 0, playing = false, dirty = true, peaks = {};
+const undoStack = [];
+
+function validScene(s) {
+  return !!s && s.version === 1 && s.room && Array.isArray(s.room.verts) && s.room.verts.length >= 3 && Array.isArray(s.tracks) && s.tracks.length >= 1 && s.tracks.length <= MAX_TRACKS &&
+    s.tracks.every(t => t.motion && Array.isArray(t.motion.keys) && t.motion.keys.length >= 1) && s.listener;
+}
+const track = () => scene.tracks.find(t => t.id === selTrack) || scene.tracks[0];
+const ink = t => INKS[(t.id - 1) % INKS.length];
+const pathLen = t => t.motion.bars * D.BEATS_PER_BAR;
+const span = () => Math.max(4, ...scene.tracks.map(t => t.motion.bars)) * D.BEATS_PER_BAR;
+
+function pushUndo() { undoStack.push(JSON.stringify(scene)); if (undoStack.length > 60) undoStack.shift(); }
+function changed(rebuild) {
+  if (rebuild) room = new D.SharedRoom(scene.room);
+  dirty = true;
+  audio.queueScene();
+  clearTimeout(changed.t);
+  if (!PLUGIN) changed.t = setTimeout(() => { try { localStorage.setItem('roomwalker.scene.v2', JSON.stringify(scene)); } catch (e) { /* optional */ } }, 400);
+}
+function refreshAll() { room = new D.SharedRoom(scene.room); renderHeader(); renderTracks(); renderInspector(); layoutTimeline(); fitPlan(); changed(false); audio.syncLoops(); }
+
+/* ------------------------------------------------------------------ audio */
+const audio = {
+  ctx: null, node: null, engine: null, master: null, pending: false, loopKeys: {}, files: {},
+  async start() {
+    if (this.ctx) { await this.ctx.resume(); return; }
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    this.ctx = new Ctx({ latencyHint: 'interactive' });
+    this.master = this.ctx.createGain();
+    this.master.gain.value = +$('master').value;
+    this.master.connect(this.ctx.destination);
+    try {
+      const code = RoomwalkerDSP.toString() + `
+        const D = RoomwalkerDSP();
+        const now = () => (globalThis.performance ? performance.now() : Date.now());
+        class RW extends AudioWorkletProcessor {
+          constructor() { super(); this.e = new D.Engine(sampleRate); this.busy = 0; this.frames = 0;
+            this.port.onmessage = ev => { const m = ev.data;
+              if (m.type === 'scene') this.e.setScene(m.scene);
+              else if (m.type === 'loop') this.e.setLoop(m.id, m.data);
+              else if (m.type === 'transport') this.e.setTransport(m.playing, m.beat); }; }
+          process(i, o) { const c = o[0], t0 = now(); this.e.process(c[0], c[1] || c[0], c[0].length);
+            this.busy += now() - t0; this.frames += c[0].length;
+            if (this.frames >= sampleRate * 0.05) { const t = this.e.telemetry();
+              this.port.postMessage({ beat: t.beat, peaks: t.voices.map(v => [v.id, v.peak]), cpu: this.busy / (this.frames / sampleRate * 1000) });
+              this.busy = 0; this.frames = 0; }
+            return true; }
+        }
+        registerProcessor('roomwalker', RW);`;
+      const url = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+      await this.ctx.audioWorklet.addModule(url);
+      this.node = new AudioWorkletNode(this.ctx, 'roomwalker', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] });
+      this.node.port.onmessage = ev => this.telemetry(ev.data);
+      this.post = (m, tr) => this.node.port.postMessage(m, tr || []);
+    } catch (err) {
+      // Sandboxed viewers can refuse worklet modules; the same engine then runs on the page
+      const e = (this.engine = new D.Engine(this.ctx.sampleRate));
+      this.node = this.ctx.createScriptProcessor(2048, 0, 2);
+      let frames = 0, busy = 0;
+      this.node.onaudioprocess = ev => {
+        const t0 = performance.now();
+        e.process(ev.outputBuffer.getChannelData(0), ev.outputBuffer.getChannelData(1), ev.outputBuffer.length);
+        busy += performance.now() - t0; frames += ev.outputBuffer.length;
+        const t = e.telemetry();
+        this.telemetry({ beat: t.beat, peaks: t.voices.map(v => [v.id, v.peak]), cpu: busy / (frames / e.fs * 1000) });
+        if (frames > e.fs) { frames = 0; busy = 0; }
+      };
+      this.post = m => { if (m.type === 'scene') e.setScene(m.scene); else if (m.type === 'loop') e.setLoop(m.id, m.data); else e.setTransport(m.playing, m.beat); };
+    }
+    this.node.connect(this.master);
+    this.post({ type: 'scene', scene: clone(scene) });
+    this.syncLoops();
+    await this.ctx.resume();
+  },
+  telemetry(m) {
+    if (playing) beat = m.beat;
+    m.peaks.forEach(p => { peaks[p[0]] = Math.max(p[1], (peaks[p[0]] || 0) * 0.8); });
+    $('cpu').textContent = 'CPU ' + Math.round(m.cpu * 100) + '%';
+    dirty = true;
+  },
+  queueScene() { this.pending = true; },
+  flush() { if (this.pending && this.post) { this.post({ type: 'scene', scene: clone(scene) }); this.pending = false; } },
+  transport() { if (this.post) this.post({ type: 'transport', playing, beat }); },
+  syncLoops() {
+    if (!this.post) return;
+    const sr = this.ctx.sampleRate;
+    scene.tracks.forEach(t => {
+      const file = t.sound === 'file' ? this.files[t.id] : null;
+      const id = file ? 'file:' + file.name : t.sound === 'file' ? 'drums|' + scene.bpm : t.sound + '|' + scene.bpm;
+      if (this.loopKeys[t.id] === id) return;
+      this.loopKeys[t.id] = id;
+      const data = file ? file.data.slice() : D.renderLoop(t.sound === 'file' ? 'drums' : t.sound, scene.bpm, sr);
+      this.post({ type: 'loop', id: t.id, data });
+    });
+  },
+  async loadFile(t, f) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = this.ctx || (this.decoder = this.decoder || new Ctx());
+    const buf = await ctx.decodeAudioData(await f.arrayBuffer());
+    const data = new Float32Array(buf.length);
+    for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) data[i] += d[i] / buf.numberOfChannels; }
+    this.files[t.id] = { name: f.name, data };
+    delete this.loopKeys[t.id];
+    t.sound = 'file'; t.fileName = f.name;
+    this.syncLoops();
+  }
+};
+
+if (PLUGIN) {
+  // The plugin engine does the audio: this page only sends edits and shows what the engine reports
+  let lastSend = 0;
+  audio.start = async () => {};
+  audio.transport = () => {};
+  audio.syncLoops = () => {};
+  audio.flush = () => {
+    if (!audio.pending || applyingRemote) return;
+    const now = performance.now();
+    if (now - lastSend < 33) return;
+    lastSend = now; audio.pending = false;
+    PLUGIN.send({ type: 'scene', scene });
+  };
+}
+let applyingRemote = false, pointerBusy = false, remoteScene = null, lastLiveRender = 0;
+const sendParam = (t, name, value) => { if (PLUGIN) PLUGIN.send({ type: 'param', track: t.id, name, value }); };
+function sendAllParams() {
+  if (PLUGIN) scene.tracks.forEach(t => { sendParam(t, 'gain', t.gain); sendParam(t, 'direct', t.direct); sendParam(t, 'early', t.early); sendParam(t, 'late', t.late); sendParam(t, 'bend', t.doppler); sendParam(t, 'pos', t.motion.auto); });
+}
+function applyRemote(next) {
+  if (pointerBusy) { remoteScene = next; return; }
+  remoteScene = null; applyingRemote = true;
+  scene = next;
+  if (!scene.tracks.some(t => t.id === selTrack)) selTrack = PLUGIN.ownId;
+  selKey = null; roomSel = null;
+  room = new D.SharedRoom(scene.room);
+  renderHeader(); renderTracks();
+  if (!(document.activeElement && document.getElementById('inspector').contains(document.activeElement))) renderInspector();
+  layoutTimeline(); fitPlan(); dirty = true;
+  applyingRemote = false;
+}
+if (PLUGIN) {
+  window.addEventListener('pointerdown', () => { pointerBusy = true; }, true);
+  const release = () => { pointerBusy = false; if (remoteScene) applyRemote(remoteScene); };
+  window.addEventListener('pointerup', release, true); window.addEventListener('pointercancel', release, true);
+  PLUGIN.on('rwscene', o => applyRemote(JSON.parse(o.s)));
+  PLUGIN.on('rwtele', o => {
+    const m = JSON.parse(o.s);
+    beat = m.beat; playing = m.playing;
+    if (m.bpm && scene.bpm !== m.bpm) { scene.bpm = m.bpm; $('bpm').value = Math.round(m.bpm * 100) / 100; }
+    peaks = m.peaks;
+    $('cpu').textContent = 'CPU ' + Math.round(m.cpu * 100) + '%';
+    let moved = false;
+    scene.tracks.forEach(t => {
+      const v = m.live[t.id]; if (!v || pointerBusy) return;
+      if (t.id === selTrack && (t.gain !== v.gain || t.direct !== v.direct || t.early !== v.early || t.late !== v.late || t.doppler !== v.bend || t.motion.auto !== v.pos)) moved = true;
+      t.gain = v.gain; t.direct = v.direct; t.early = v.early; t.late = v.late; t.doppler = v.bend; t.motion.auto = v.pos;
+    });
+    const now = performance.now();
+    if (moved && tab === 'track' && now - lastLiveRender > 250 && !document.getElementById('inspector').contains(document.activeElement)) { lastLiveRender = now; renderInspector(); }
+    dirty = true;
+  });
+}
+
+async function togglePlay() {
+  if (PLUGIN) return;
+  try {
+    await audio.start();
+    playing = !playing;
+    audio.transport();
+    renderHeader();
+  } catch (e) { hint('Audio could not start in this browser. Try the page in Chrome or Edge.'); }
+}
+function seek(b) { if (PLUGIN) return; beat = Math.max(0, b); audio.transport(); dirty = true; }
+
+/* ------------------------------------------------------------------ header */
+function renderHeader() {
+  if (PLUGIN) { ['rewind', 'play'].forEach(id => ($(id).hidden = true)); $('bpm').disabled = true; $('masterGroup').hidden = true; }
+  $('play').textContent = playing ? 'Pause' : 'Play';
+  $('play').classList.toggle('on', playing);
+  $('bpm').value = scene.bpm;
+  const out = $('output'); out.innerHTML = '';
+  [['binaural', 'Headphones'], ['speakers', 'Speakers']].forEach(([id, label]) => {
+    const b = document.createElement('button'); b.textContent = label; b.classList.toggle('on', scene.output === id);
+    b.setAttribute('aria-pressed', scene.output === id);
+    b.onclick = () => { scene.output = id; changed(); renderHeader(); };
+    out.appendChild(b);
+  });
+  const sel = $('preset');
+  if (!sel.options.length) {
+    Object.entries(PRESETS).forEach(([id, p]) => sel.add(new Option(p.name, id)));
+    sel.add(new Option('Custom room', 'custom'));
+  }
+  sel.value = scene.preset || 'custom';
+  $('undo').disabled = !undoStack.length;
+}
+function markCustom() { if (scene.preset !== 'custom') { scene.preset = 'custom'; $('preset').value = 'custom'; } }
+function applyPreset(id) {
+  const p = PRESETS[id]; if (!p) return;
+  pushUndo();
+  const box = v => ({ x0: Math.min(...v.map(a => a.x)), x1: Math.max(...v.map(a => a.x)), y0: Math.min(...v.map(a => a.y)), y1: Math.max(...v.map(a => a.y)) });
+  const a = box(scene.room.verts), b = box(p.room.verts), H0 = scene.room.height;
+  scene.room = clone(p.room); scene.listener = { ...clone(p.listener), clarity: scene.listener.clarity ?? 1, skull: scene.listener.skull ?? 1, focus: scene.listener.focus ?? 0.8 }; scene.preset = id;
+  scene.tracks.forEach(t => t.motion.keys.forEach(k => {
+    let x = b.x0 + ((k.x - a.x0) / Math.max(a.x1 - a.x0, 0.1)) * (b.x1 - b.x0), y = b.y0 + ((k.y - a.y0) / Math.max(a.y1 - a.y0, 0.1)) * (b.y1 - b.y0);
+    for (let i = 0; i < 12 && !D.pointInPoly(x, y, p.room.verts); i++) { x += (p.listener.x - x) * 0.25; y += (p.listener.y - y) * 0.25; }
+    k.x = snap(x, 0.05); k.y = snap(y, 0.05); k.z = clamp(k.z, 0.1, Math.min(p.room.height - 0.1, H0));
+  }));
+  roomSel = null;
+  refreshAll();
+}
+
+/* ------------------------------------------------------------------ track list */
+function el(tag, props, ...kids) {
+  const n = document.createElement(tag);
+  Object.entries(props || {}).forEach(([k, v]) => { if (k === 'class') n.className = v; else if (k in n) n[k] = v; else n.setAttribute(k, v); });
+  kids.forEach(c => n.append(c));
+  return n;
+}
+function renderTracks() {
+  const left = $('left'); left.innerHTML = '';
+  const add = el('button', { textContent: 'Add track', disabled: scene.tracks.length >= MAX_TRACKS, onclick: addTrack });
+  left.append(el('div', { class: 'head' }, el('span', { class: 'cap', textContent: 'Tracks' }), PLUGIN ? '' : add));
+  if (PLUGIN) left.append(el('p', { class: 'note linknote', textContent: 'Add Roomwalker to another track and it joins this room.' }));
+  scene.tracks.forEach(t => {
+    const card = el('div', { class: 'track' + (t.id === selTrack ? ' sel' : '') });
+    card.style.setProperty('--ink', ink(t));
+    card.onclick = () => {
+      if (selTrack === t.id) return;
+      selTrack = t.id; selKey = null; tab = 'track';
+      // keep the card in place so a dropdown or name field opened by this click stays open
+      left.querySelectorAll('.track').forEach(c => c.classList.toggle('sel', c === card));
+      renderInspector(); dirty = true;
+    };
+    const name = el('input', { class: 'name', value: t.name, 'aria-label': 'Track name', maxLength: 18, onchange: () => { t.name = name.value || 'Track'; t.hostName = false; changed(); renderInspector(); } });
+    const m = el('button', { class: 'mini' + (t.mute ? ' on' : ''), textContent: 'M', title: 'Mute', 'aria-label': 'Mute ' + t.name, onclick: () => { t.mute = !t.mute; changed(); renderTracks(); } });
+    const s = el('button', { class: 'mini' + (t.solo ? ' on' : ''), textContent: 'S', title: 'Solo', 'aria-label': 'Solo ' + t.name, onclick: () => { t.solo = !t.solo; changed(); renderTracks(); } });
+    const sound = el('select', { 'aria-label': 'Sound for ' + t.name });
+    Object.entries(SOUNDS).forEach(([id, label]) => sound.add(new Option(id === 'file' && t.fileName ? t.fileName : label, id)));
+    sound.value = t.sound;
+    sound.onchange = () => {
+      if (sound.value === 'file') { sound.value = t.sound; pendingFileTrack = t; $('file').click(); return; }
+      t.sound = sound.value; t.fileName = undefined; audio.syncLoops(); changed(); renderTracks();
+    };
+    const meter = el('div', { class: 'meter' }, el('i', { id: 'meter' + t.id }));
+    card.append(el('div', { class: 'row' }, name, m, s));
+    if (PLUGIN) { if (t.id === PLUGIN.ownId) card.append(el('span', { class: 'cap', textContent: 'This plugin' })); } else card.append(sound);
+    card.append(meter);
+    left.append(card);
+  });
+}
+let pendingFileTrack = null;
+function addTrack() {
+  if (scene.tracks.length >= MAX_TRACKS) return;
+  pushUndo();
+  let id = 1; while (scene.tracks.some(t => t.id === id)) id++;
+  const L = scene.listener, p = nearestInside(L.x + 1.5, L.y + 1);
+  scene.tracks.push(makeTrack(id, 'Track ' + id, 'voice', [key(0, snap(p.x, 0.05), snap(p.y, 0.05), 1.6)], 4));
+  selTrack = id; selKey = 0; tab = 'track';
+  refreshAll();
+}
+function deleteTrack() {
+  if (scene.tracks.length < 2) return;
+  pushUndo();
+  scene.tracks = scene.tracks.filter(t => t.id !== selTrack);
+  delete audio.loopKeys[selTrack];
+  selTrack = scene.tracks[0].id; selKey = null;
+  refreshAll();
+}
+
+/* ------------------------------------------------------------------ inspector */
+function slider(o) {
+  const out = el('output', { textContent: o.fmt(o.get()) });
+  const id = 'c' + (slider.n = (slider.n || 0) + 1);
+  const r = el('input', { type: 'range', id, min: o.min, max: o.max, step: o.step, value: o.get() });
+  let started = false;
+  r.oninput = () => { if (!started) { pushUndo(); started = true; } o.set(+r.value); out.textContent = o.fmt(o.get()); if (o.param) sendParam(o.param[0], o.param[1], +r.value); changed(o.room); };
+  r.onchange = () => { started = false; renderHeader(); if (o.after) o.after(); };
+  return el('div', { class: 'ctl' }, el('div', { class: 'top' }, el('label', { htmlFor: id, textContent: o.label }), out), r);
+}
+function pick(label, options, value, set) {
+  const id = 'c' + (slider.n = (slider.n || 0) + 1);
+  const s = el('select', { id });
+  options.forEach(([v, l]) => s.add(new Option(l, v)));
+  s.value = value;
+  s.onchange = () => { pushUndo(); set(s.value); };
+  return el('div', { class: 'field' }, el('label', { htmlFor: id, textContent: label }), s);
+}
+const matOptions = Object.entries(D.MATERIALS).map(([id, m]) => [id, m.name]);
+const dbFmt = v => (v <= 0.001 ? 'off' : (20 * Math.log10(v)).toFixed(1) + ' dB');
+const pct = v => Math.round(v * 100) + '%';
+
+function renderInspector() {
+  $('tabTrack').classList.toggle('on', tab === 'track');
+  $('tabRoom').classList.toggle('on', tab === 'room');
+  const box = $('inspector'); box.innerHTML = '';
+  if (tab === 'track') trackPanel(box); else roomPanel(box);
+}
+function trackPanel(box) {
+  const t = track(), m = t.motion;
+  const mode = el('div', { class: 'seg' });
+  [['tempo', 'Tempo sync'], ['automation', 'DAW automation']].forEach(([id, label]) => mode.append(el('button', { textContent: label, className: m.mode === id ? 'on' : '', onclick: () => { pushUndo(); m.mode = id; changed(); renderInspector(); } })));
+  const sec = el('div', { class: 'sec' }, el('h2', { textContent: t.name + ' path' }), mode);
+  const bars = el('input', { type: 'number', min: 1, max: 32, step: 1, value: m.bars, id: 'barsInput', onchange: () => {
+    pushUndo();
+    const v = clamp(Math.round(+bars.value) || m.bars, 1, 32), ratio = v / m.bars;
+    m.keys.forEach(k => (k.t = snap(k.t * ratio, 0.0625)));
+    m.bars = v; changed(); layoutTimeline(); renderInspector();
+  } });
+  sec.append(el('div', { class: 'field' }, el('label', { htmlFor: 'barsInput', textContent: 'Length (bars)' }), bars));
+  if (m.mode === 'tempo') sec.append(pick('At the end', [['loop', 'Loop'], ['pingpong', 'Ping-pong'], ['once', 'Play once']], m.loop, v => { m.loop = v; changed(); }));
+  else sec.append(slider({ label: 'Position along path', min: 0, max: 1, step: 0.001, param: [t, 'pos'], get: () => m.auto, set: v => (m.auto = v), fmt: pct }), el('p', { class: 'note', textContent: 'Draw the Path Position envelope for this plugin in Cakewalk to move the sound.' }));
+  sec.append(slider({ label: 'Pitch bend', min: 0, max: 2, step: 0.01, param: [t, 'bend'], get: () => t.doppler, set: v => (t.doppler = v), fmt: v => (v === 0 ? 'Off' : pct(v)) }),
+    el('p', { class: 'note', textContent: 'Off keeps pitch steady. 100% is physically natural. 200% exaggerates it.' }),
+    el('div', { class: 'btns' }, el('button', { textContent: 'Use on all tracks', onclick: () => { pushUndo(); scene.tracks.forEach(x => { x.doppler = t.doppler; sendParam(x, 'bend', t.doppler); }); changed(); hint('Every track now uses ' + (t.doppler === 0 ? 'no pitch bend.' : pct(t.doppler) + ' pitch bend.')); renderHeader(); } })));
+  sec.append(pick('Path shape', [['curve', 'Curved'], ['line', 'Straight']], m.curve === false ? 'line' : 'curve', v => { m.curve = v === 'curve'; changed(); }));
+  box.append(sec);
+
+  const k = selKey != null ? m.keys[selKey] : null;
+  const ks = el('div', { class: 'sec' }, el('h2', { textContent: k ? 'Keyframe ' + (selKey + 1) + ' of ' + m.keys.length : 'Keyframes (' + m.keys.length + ')' }));
+  if (k) {
+    const num = (label, prop, min, max, step, after) => {
+      const id = 'k' + prop;
+      const i = el('input', { type: 'number', id, min, max, step, value: +k[prop].toFixed(2), onchange: () => {
+        pushUndo(); k[prop] = clamp(+i.value || 0, min, max); if (after) after(); changed(); renderInspector();
+      } });
+      return el('label', { htmlFor: id }, label, i);
+    };
+    ks.append(el('div', { class: 'xyz' }, num('Beat', 't', 0, pathLen(t) - 0.25, 0.25, () => sortKeys(t, k)), num('X m', 'x', -50, 80, 0.1), num('Y m', 'y', -50, 80, 0.1), num('Height', 'z', 0.05, scene.room.height - 0.05, 0.1)));
+    ks.append(pick('Ease to next', [['linear', 'Linear'], ['smooth', 'Smooth'], ['in', 'Ease in'], ['out', 'Ease out']], k.ease, v => { k.ease = v; changed(); }));
+  } else ks.append(el('p', { class: 'note', textContent: 'Double-click the floor to add a keyframe at the playhead.' }));
+  ks.append(el('div', { class: 'btns' },
+    el('button', { textContent: 'Add at playhead', onclick: () => { const p = D.evalPath(m, beat); addKey(t, p.x, p.y, p.z); } }),
+    el('button', { textContent: 'Delete keyframe', disabled: !k || m.keys.length < 2, onclick: deleteKey })));
+  box.append(ks);
+
+  box.append(el('div', { class: 'sec' }, el('h2', { textContent: 'Placement tests' }),
+    el('p', { class: 'note', textContent: 'Replaces this track\u2019s path. Shaker and noise show direction best.' }),
+    el('div', { class: 'btns' },
+      el('button', { textContent: 'Circle my head', onclick: () => placementTest(t, 'circle') }),
+      el('button', { textContent: 'Front to back', onclick: () => placementTest(t, 'through') }))));
+
+  box.append(el('div', { class: 'sec' }, el('h2', { textContent: 'Levels' }),
+    slider({ label: 'Input gain', min: 0, max: 1.6, step: 0.01, param: [t, 'gain'], get: () => t.gain, set: v => (t.gain = v), fmt: dbFmt }),
+    slider({ label: 'Direct sound', min: 0, max: 1.6, step: 0.01, param: [t, 'direct'], get: () => t.direct, set: v => (t.direct = v), fmt: dbFmt }),
+    slider({ label: 'Early reflections', min: 0, max: 1.6, step: 0.01, param: [t, 'early'], get: () => t.early, set: v => (t.early = v), fmt: dbFmt }),
+    slider({ label: 'Reverb tail', min: 0, max: 1.6, step: 0.01, param: [t, 'late'], get: () => t.late, set: v => (t.late = v), fmt: dbFmt }),
+    PLUGIN ? '' : el('div', { class: 'btns' }, el('button', { textContent: 'Delete track', disabled: scene.tracks.length < 2, onclick: deleteTrack }))));
+}
+function placementTest(t, kind) {
+  pushUndo();
+  const L = scene.listener, m = t.motion, dir = a => ({ x: Math.cos(L.yaw + a), y: Math.sin(L.yaw + a) });
+  const reach = (a, want) => {
+    const d = dir(a);
+    for (let r = want; r > 0.4; r -= 0.1) if (D.pointInPoly(L.x + d.x * r, L.y + d.y * r, room.verts)) return r;
+    return 0.4;
+  };
+  m.mode = 'tempo'; m.bars = 4;
+  if (kind === 'circle') {
+    m.loop = 'loop'; m.curve = true;
+    let r = 2.2;
+    for (let i = 0; i < 8; i++) r = Math.min(r, reach((i / 8) * Math.PI * 2, 2.2));
+    m.keys = Array.from({ length: 8 }, (_, i) => { const d = dir((i / 8) * Math.PI * 2); return key(i * 2, L.x + d.x * r, L.y + d.y * r, L.z); });
+    hint('The sound now circles you: ahead, left, behind, right.');
+  } else {
+    m.loop = 'pingpong'; m.curve = false;
+    const a = dir(0), f = reach(0, 3.5), b = reach(Math.PI, 3.5);
+    m.keys = [key(0, L.x + a.x * f, L.y + a.y * f, L.z), key(8, L.x, L.y, L.z), key(15.75, L.x - a.x * b, L.y - a.y * b, L.z)];
+    hint('The sound now travels from ahead of you, through your head, to behind you.');
+  }
+  selKey = null; changed(); layoutTimeline(); renderInspector();
+}
+function roomPanel(box) {
+  const st = room.stats, r = scene.room, LS = scene.listener;
+  box.append(el('div', { class: 'sec' }, el('h2', { textContent: 'Listener' }),
+    slider({ label: 'Position focus', min: 0, max: 1, step: 0.01, get: () => LS.focus ?? 0.8, set: v => (LS.focus = v), fmt: pct }),
+    el('p', { class: 'note', textContent: 'Higher is easier to place. 0% is the natural room balance.' }),
+    slider({ label: 'Front/back clarity', min: 0, max: 1.5, step: 0.01, get: () => LS.clarity ?? 1, set: v => (LS.clarity = v), fmt: pct }),
+    slider({ label: 'Inside-the-skull effect', min: 0, max: 1, step: 0.01, get: () => LS.skull ?? 1, set: v => (LS.skull = v), fmt: pct })));
+  box.append(el('div', { class: 'sec' }, el('h2', { textContent: 'Measured from this room' }),
+    el('div', { class: 'stat' }, stat(st.rt[0].toFixed(2) + ' s', 'Decay, lows'), stat(st.rt[1].toFixed(2) + ' s', 'Decay, mids'), stat(st.rt[2].toFixed(2) + ' s', 'Decay, highs'),
+      stat(Math.round(st.volume) + ' m³', 'Volume'), stat(st.critical.toFixed(2) + ' m', 'Critical dist.'), stat(((st.mfp / D.C) * 1000).toFixed(0) + ' ms', 'Mean bounce'))));
+  const after = () => renderInspector();
+  box.append(el('div', { class: 'sec' }, el('h2', { textContent: 'Room' }),
+    slider({ label: 'Ceiling height', min: 2, max: 24, step: 0.1, room: true, get: () => r.height, set: v => { r.height = v; r.obstacles.forEach(o => (o.h = Math.min(o.h, v))); markCustom(); }, fmt: v => v.toFixed(1) + ' m', after }),
+    slider({ label: 'Decay trim', min: 0.25, max: 2.5, step: 0.01, room: true, get: () => r.decay ?? 1, set: v => (r.decay = v), fmt: v => '×' + v.toFixed(2), after }),
+    pick('Floor', matOptions, r.floor, v => { r.floor = v; markCustom(); changed(true); renderInspector(); }),
+    pick('Ceiling', matOptions, r.ceiling, v => { r.ceiling = v; markCustom(); changed(true); renderInspector(); }),
+    pick('All walls', [['', 'Choose to replace...'], ...matOptions], '', v => { if (v) { r.verts.forEach(a => (a.mat = v)); markCustom(); changed(true); renderInspector(); } })));
+
+  const s = el('div', { class: 'sec' });
+  if (roomSel && roomSel.kind === 'wall') {
+    const w = r.verts[roomSel.index], q = r.verts[(roomSel.index + 1) % r.verts.length];
+    s.append(el('h2', { textContent: 'Wall ' + (roomSel.index + 1) + ', ' + Math.hypot(q.x - w.x, q.y - w.y).toFixed(2) + ' m' }), pick('Material', matOptions, w.mat, v => { w.mat = v; markCustom(); changed(true); renderInspector(); }),
+      el('p', { class: 'note', textContent: 'Double-click a wall to add a corner.' }));
+  } else if (roomSel && roomSel.kind === 'vertex') {
+    s.append(el('h2', { textContent: 'Corner ' + (roomSel.index + 1) }), el('div', { class: 'btns' }, el('button', { textContent: 'Delete corner', disabled: r.verts.length <= 3, onclick: deleteVertex })));
+  } else if (roomSel && roomSel.kind === 'obstacle') {
+    const o = r.obstacles[roomSel.index];
+    s.append(el('h2', { textContent: 'Obstacle ' + (roomSel.index + 1) }),
+      slider({ label: 'Width', min: 0.2, max: 8, step: 0.05, room: true, get: () => o.w, set: v => (o.w = v), fmt: v => v.toFixed(2) + ' m' }),
+      slider({ label: 'Depth', min: 0.2, max: 8, step: 0.05, room: true, get: () => o.d, set: v => (o.d = v), fmt: v => v.toFixed(2) + ' m' }),
+      slider({ label: 'Height', min: 0.3, max: r.height, step: 0.05, room: true, get: () => o.h, set: v => (o.h = v), fmt: v => v.toFixed(2) + ' m' }),
+      slider({ label: 'Rotation', min: 0, max: Math.PI, step: 0.01, room: true, get: () => o.rot, set: v => (o.rot = v), fmt: v => Math.round((v * 180) / Math.PI) + '°' }),
+      pick('Material', matOptions, o.mat, v => { o.mat = v; changed(true); }),
+      el('div', { class: 'btns' }, el('button', { textContent: 'Delete obstacle', onclick: deleteObstacle })));
+  } else s.append(el('h2', { textContent: 'Selection' }), el('p', { class: 'note', textContent: 'Click a wall, corner or obstacle on the plan to edit it.' }));
+  s.append(el('div', { class: 'btns' }, el('button', { textContent: 'Add obstacle', disabled: r.obstacles.length >= 6, onclick: addObstacle })));
+  box.append(s);
+
+  box.append(el('div', { class: 'sec' }, el('h2', { textContent: 'Reflection detail' }),
+    pick('Bounces', [['1', '1 bounce'], ['2', '2 bounces'], ['3', '3 bounces']], String(scene.quality.order), v => { scene.quality.order = +v; changed(); }),
+    pick('Paths per track', [['8', '8'], ['16', '16'], ['24', '24']], String(scene.quality.taps), v => { scene.quality.taps = +v; changed(); })));
+}
+const stat = (a, b) => el('div', {}, el('b', { textContent: a }), el('span', { textContent: b }));
+
+function sortKeys(t, k) { t.motion.keys.sort((a, b) => a.t - b.t); selKey = t.motion.keys.indexOf(k); }
+function addKey(t, x, y, z) {
+  pushUndo();
+  const len = pathLen(t); let b = snap(D.pathPhase(t.motion, beat), 0.25) % len;
+  while (t.motion.keys.some(k => Math.abs(k.t - b) < 0.2)) b = (b + 0.25) % len;
+  const k = key(b, snap(x, 0.05), snap(y, 0.05), clamp(z, 0.05, scene.room.height - 0.05));
+  t.motion.keys.push(k); sortKeys(t, k); tab = 'track'; changed(); renderInspector();
+}
+function deleteKey() {
+  const t = track(); if (selKey == null || t.motion.keys.length < 2) return;
+  pushUndo(); t.motion.keys.splice(selKey, 1); selKey = null; changed(); renderInspector();
+}
+function deleteVertex() {
+  if (!roomSel || roomSel.kind !== 'vertex' || scene.room.verts.length <= 3) return;
+  pushUndo();
+  const v = scene.room.verts.filter((_, i) => i !== roomSel.index);
+  if (!simple(v)) { hint('Removing that corner would make the walls cross.'); undoStack.pop(); return; }
+  scene.room.verts = v; roomSel = null; markCustom(); changed(true); renderInspector();
+}
+function addObstacle() {
+  pushUndo();
+  const c = centroidInside();
+  scene.room.obstacles.push({ x: c.x, y: c.y, w: 1, d: 1, h: Math.min(2.4, scene.room.height), rot: 0, mat: 'concrete' });
+  roomSel = { kind: 'obstacle', index: scene.room.obstacles.length - 1 }; markCustom(); changed(true); renderInspector();
+}
+function deleteObstacle() {
+  if (!roomSel || roomSel.kind !== 'obstacle') return;
+  pushUndo(); scene.room.obstacles.splice(roomSel.index, 1); roomSel = null; markCustom(); changed(true); renderInspector();
+}
+function centroidInside() {
+  const v = scene.room.verts; let x = 0, y = 0; v.forEach(p => { x += p.x; y += p.y; }); x /= v.length; y /= v.length;
+  return nearestInside(snap(x, 0.25), snap(y, 0.25));
+}
+
+/* ------------------------------------------------------------------ geometry helpers */
+function segCross(a, b, c, d) {
+  const o = (p, q, r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0;
+}
+function simple(v) {
+  const n = v.length;
+  for (let i = 0; i < n; i++) {
+    const a = v[i], b = v[(i + 1) % n];
+    if (Math.hypot(b.x - a.x, b.y - a.y) < 0.4) return false;
+    for (let j = i + 2; j < n; j++) { if ((j + 1) % n === i) continue; if (segCross(a, b, v[j], v[(j + 1) % n])) return false; }
+  }
+  return Math.abs(D.signedArea(v)) > 4;
+}
+function nearestInside(x, y) {
+  const v = room.verts;
+  if (D.pointInPoly(x, y, v)) return { x, y };
+  let best = null, bd = 1e9;
+  v.forEach((p, i) => {
+    const q = v[(i + 1) % v.length], ex = q.x - p.x, ey = q.y - p.y, l = ex * ex + ey * ey;
+    const u = clamp(((x - p.x) * ex + (y - p.y) * ey) / l, 0.02, 0.98), cx = p.x + u * ex, cy = p.y + u * ey, d = Math.hypot(x - cx, y - cy), m = Math.sqrt(l);
+    if (d < bd) { bd = d; best = { x: cx - (ey / m) * 0.12, y: cy + (ex / m) * 0.12 }; }
+  });
+  return best;
+}
+function samplePath(t, n) {
+  const m = t.motion, len = pathLen(t), out = [], probe = { ...m, mode: 'tempo', loop: m.loop === 'loop' ? 'loop' : 'once' };
+  for (let i = 0; i <= n; i++) out.push(D.evalPath(probe, (i / n) * len * 0.9999, {}));
+  return out;
+}
+
+/* ------------------------------------------------------------------ canvas setup */
+function fit(c) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2), w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { g, w, h };
+}
+const COL = { paper: '#10294c', grid: 'rgba(160,195,235,.11)', gridB: 'rgba(160,195,235,.2)', wall: '#e9f1f8', dim: '#a5bdd8', floor: 'rgba(120,165,220,.1)', accent: '#f4b860', obstacle: 'rgba(200,220,245,.26)' };
+const MAT_TINT = { foam: '#7fe3c6', curtain: '#7fe3c6', carpet: '#7fe3c6', glass: '#9fd4ff', wood: '#e6c08f', hardwood: '#e6c08f' };
+
+/* ------------------------------------------------------------------ plan view */
+const plan = { s: 30, ox: 0, oy: 0, c: $('plan'), drag: null };
+const toX = x => plan.ox + x * plan.s, toY = y => plan.oy - y * plan.s;
+const fromX = x => (x - plan.ox) / plan.s, fromY = y => (plan.oy - y) / plan.s;
+function fitPlan() {
+  const v = scene.room.verts, w = plan.c.clientWidth, h = plan.c.clientHeight; if (!w) return;
+  const x0 = Math.min(...v.map(p => p.x)), x1 = Math.max(...v.map(p => p.x)), y0 = Math.min(...v.map(p => p.y)), y1 = Math.max(...v.map(p => p.y));
+  plan.s = Math.min((w - 84) / Math.max(x1 - x0, 1), (h - 84) / Math.max(y1 - y0, 1));
+  plan.ox = w / 2 - ((x0 + x1) / 2) * plan.s; plan.oy = h / 2 + 6 + ((y0 + y1) / 2) * plan.s;
+  dirty = true;
+}
+function drawPlan() {
+  const { g, w, h } = fit(plan.c);
+  g.fillStyle = COL.paper; g.fillRect(0, 0, w, h);
+  const x0 = Math.floor(fromX(0)), x1 = Math.ceil(fromX(w)), y0 = Math.floor(fromY(h)), y1 = Math.ceil(fromY(0));
+  g.lineWidth = 1;
+  for (let x = x0; x <= x1; x++) { g.strokeStyle = x % 5 ? COL.grid : COL.gridB; g.beginPath(); g.moveTo(toX(x) + 0.5, 0); g.lineTo(toX(x) + 0.5, h); g.stroke(); }
+  for (let y = y0; y <= y1; y++) { g.strokeStyle = y % 5 ? COL.grid : COL.gridB; g.beginPath(); g.moveTo(0, toY(y) + 0.5); g.lineTo(w, toY(y) + 0.5); g.stroke(); }
+  const v = scene.room.verts;
+  g.beginPath(); v.forEach((p, i) => (i ? g.lineTo(toX(p.x), toY(p.y)) : g.moveTo(toX(p.x), toY(p.y)))); g.closePath(); g.fillStyle = COL.floor; g.fill();
+
+  scene.room.obstacles.forEach((o, i) => {
+    const c = D.obstacleCorners(o);
+    g.beginPath(); c.forEach((p, j) => (j ? g.lineTo(toX(p.x), toY(p.y)) : g.moveTo(toX(p.x), toY(p.y)))); g.closePath();
+    g.fillStyle = COL.obstacle; g.fill();
+    const on = roomSel && roomSel.kind === 'obstacle' && roomSel.index === i;
+    g.strokeStyle = on ? COL.accent : COL.wall; g.lineWidth = on ? 2 : 1.2; g.stroke();
+  });
+
+  drawRays(g, p => [toX(p.x), toY(p.y)]);
+
+  v.forEach((p, i) => {
+    const q = v[(i + 1) % v.length], on = roomSel && roomSel.kind === 'wall' && roomSel.index === i;
+    g.strokeStyle = on ? COL.accent : MAT_TINT[p.mat] || COL.wall; g.lineWidth = on ? 4 : 2.5; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(toX(p.x), toY(p.y)); g.lineTo(toX(q.x), toY(q.y)); g.stroke();
+    const len = Math.hypot(q.x - p.x, q.y - p.y), px = len * plan.s;
+    if (px > 46) {
+      // dimension string set just outside the wall, as on a drawing
+      const mx = (toX(p.x) + toX(q.x)) / 2, my = (toY(p.y) + toY(q.y)) / 2;
+      const signed = D.signedArea(v) > 0 ? 1 : -1, nx = ((q.y - p.y) / len) * signed, ny = ((q.x - p.x) / len) * signed;
+      g.save(); g.translate(mx + nx * 13, my + ny * 13);
+      let a = Math.atan2(toY(q.y) - toY(p.y), toX(q.x) - toX(p.x)); if (a > Math.PI / 2 || a < -Math.PI / 2) a += Math.PI;
+      g.rotate(a); g.fillStyle = COL.dim; g.font = '11px "IBM Plex Mono", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(len.toFixed(2) + ' m', 0, 0); g.restore();
+    }
+  });
+  v.forEach((p, i) => {
+    const on = roomSel && roomSel.kind === 'vertex' && roomSel.index === i;
+    g.fillStyle = on ? COL.accent : COL.paper; g.strokeStyle = on ? COL.accent : COL.wall; g.lineWidth = 1.5;
+    g.fillRect(toX(p.x) - 4, toY(p.y) - 4, 8, 8); g.strokeRect(toX(p.x) - 4, toY(p.y) - 4, 8, 8);
+  });
+
+  scene.tracks.forEach(t => {
+    const on = t.id === selTrack, pts = samplePath(t, t.motion.keys.length > 1 ? 90 : 1), c = ink(t);
+    if (t.motion.keys.length > 1) {
+      g.strokeStyle = c; g.globalAlpha = on ? 0.95 : 0.42; g.lineWidth = on ? 2 : 1.3; g.setLineDash(on ? [] : [5, 4]);
+      g.beginPath(); pts.forEach((p, i) => (i ? g.lineTo(toX(p.x), toY(p.y)) : g.moveTo(toX(p.x), toY(p.y)))); g.stroke();
+      g.setLineDash([]); g.globalAlpha = 1;
+    }
+    t.motion.keys.forEach((k, i) => {
+      const x = toX(k.x), y = toY(k.y), r = on ? 6 : 4.5, chosen = on && selKey === i;
+      g.save(); g.translate(x, y); g.rotate(Math.PI / 4);
+      g.fillStyle = chosen ? '#fff' : on ? c : COL.paper; g.strokeStyle = c; g.lineWidth = 1.6;
+      g.fillRect(-r, -r, r * 2, r * 2); g.strokeRect(-r, -r, r * 2, r * 2); g.restore();
+    });
+    const p = D.evalPath(t.motion, beat), lvl = clamp((peaks[t.id] || 0) * 1.6, 0, 1);
+    g.fillStyle = c; g.globalAlpha = 0.22; g.beginPath(); g.arc(toX(p.x), toY(p.y), 11 + lvl * 15, 0, 7); g.fill(); g.globalAlpha = 1;
+    g.beginPath(); g.arc(toX(p.x), toY(p.y), 7, 0, 7); g.fill(); g.strokeStyle = COL.paper; g.lineWidth = 1.5; g.stroke();
+    g.fillStyle = COL.wall; g.font = '600 12px "IBM Plex Sans Condensed", sans-serif'; g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.fillText(t.name, toX(p.x) + 11, toY(p.y) - 11);
+  });
+
+  const L = scene.listener, lx = toX(L.x), ly = toY(L.y), hx = lx + Math.cos(L.yaw) * 27, hy = ly - Math.sin(L.yaw) * 27;
+  g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(lx, ly); g.lineTo(hx, hy); g.stroke();
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(hx, hy, 4.5, 0, 7); g.fill();
+  g.fillStyle = COL.paper; g.beginPath(); g.arc(lx, ly, 10, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke();
+  [1, -1].forEach(s => { g.beginPath(); g.arc(lx - Math.sin(L.yaw) * 10 * s, ly - Math.cos(L.yaw) * 10 * s, 3, 0, 7); g.fillStyle = '#fff'; g.fill(); });
+
+  // scale bar
+  const bar = plan.s * (plan.s < 22 ? 5 : 2), label = plan.s < 22 ? '5 m' : '2 m';
+  g.strokeStyle = COL.dim; g.lineWidth = 1.5; g.beginPath(); g.moveTo(w - 14 - bar, h - 14); g.lineTo(w - 14, h - 14); g.moveTo(w - 14 - bar, h - 18); g.lineTo(w - 14 - bar, h - 10); g.moveTo(w - 14, h - 18); g.lineTo(w - 14, h - 10); g.stroke();
+  g.fillStyle = COL.dim; g.font = '11px "IBM Plex Mono", monospace'; g.textAlign = 'center'; g.fillText(label, w - 14 - bar / 2, h - 25);
+}
+function drawRays(g, map) {
+  const t = track(), S = D.evalPath(t.motion, beat), L = scene.listener, c = ink(t), out = [];
+  room.findReflections(S, L, Math.min(scene.quality.order, 2), out);
+  out.sort((a, b) => b.rank - a.rank);
+  out.slice(0, 10).forEach(r => {
+    g.strokeStyle = c; g.globalAlpha = clamp(r.rank * 1.5, 0.08, 0.4); g.lineWidth = r.order === 1 ? 1.1 : 0.7;
+    g.beginPath(); g.moveTo(...map(L));
+    for (let i = 0; i < r.pts.length; i += 3) g.lineTo(...map({ x: r.pts[i], y: r.pts[i + 1], z: r.pts[i + 2] }));
+    g.lineTo(...map(S)); g.stroke();
+  });
+  g.globalAlpha = 1;
+  const blocked = room.detour(S, L) > 0.01;
+  g.strokeStyle = blocked ? '#ff8d7a' : c; g.lineWidth = 1.5; g.setLineDash(blocked ? [3, 5] : []);
+  g.globalAlpha = blocked ? 0.95 : 0.7; g.beginPath(); g.moveTo(...map(L)); g.lineTo(...map(S)); g.stroke();
+  g.setLineDash([]); g.globalAlpha = 1;
+}
+function planPick(x, y) {
+  const L = scene.listener, near = (a, b, r) => Math.hypot(a - x, b - y) <= r;
+  if (near(toX(L.x) + Math.cos(L.yaw) * 27, toY(L.y) - Math.sin(L.yaw) * 27, 10)) return { type: 'yaw' };
+  if (near(toX(L.x), toY(L.y), 13)) return { type: 'listener' };
+  const order = [track(), ...scene.tracks.filter(t => t.id !== selTrack)];
+  for (const t of order) for (let i = 0; i < t.motion.keys.length; i++) { const k = t.motion.keys[i]; if (near(toX(k.x), toY(k.y), 10)) return { type: 'key', track: t, index: i }; }
+  const v = scene.room.verts;
+  for (let i = 0; i < v.length; i++) if (near(toX(v[i].x), toY(v[i].y), 9)) return { type: 'vertex', index: i };
+  const wx = fromX(x), wy = fromY(y);
+  for (let i = scene.room.obstacles.length - 1; i >= 0; i--) if (D.pointInPoly(wx, wy, D.obstacleCorners(scene.room.obstacles[i]))) return { type: 'obstacle', index: i, dx: wx - scene.room.obstacles[i].x, dy: wy - scene.room.obstacles[i].y };
+  for (let i = 0; i < v.length; i++) {
+    const p = v[i], q = v[(i + 1) % v.length], ex = toX(q.x) - toX(p.x), ey = toY(q.y) - toY(p.y), l = ex * ex + ey * ey;
+    const u = clamp(((x - toX(p.x)) * ex + (y - toY(p.y)) * ey) / l, 0, 1);
+    if (near(toX(p.x) + u * ex, toY(p.y) + u * ey, 7)) return { type: 'wall', index: i };
+  }
+  return null;
+}
+const local = (e, c) => { const r = c.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+plan.c.addEventListener('pointerdown', e => {
+  const [x, y] = local(e, plan.c), hit = planPick(x, y);
+  plan.c.focus({ preventScroll: true });
+  if (!hit) { roomSel = null; selKey = null; renderInspector(); dirty = true; return; }
+  if (hit.type === 'key') { selTrack = hit.track.id; selKey = hit.index; tab = 'track'; renderTracks(); }
+  else if (['wall', 'vertex', 'obstacle'].includes(hit.type)) { roomSel = { kind: hit.type, index: hit.index }; tab = 'room'; }
+  renderInspector(); dirty = true;
+  if (hit.type !== 'wall') { pushUndo(); plan.drag = hit; plan.c.setPointerCapture(e.pointerId); renderHeader(); }
+});
+plan.c.addEventListener('pointermove', e => {
+  const [x, y] = local(e, plan.c), d = plan.drag;
+  if (!d) { const h = planPick(x, y); plan.c.style.cursor = h ? (h.type === 'wall' ? 'pointer' : 'grab') : 'crosshair'; return; }
+  const wx = fromX(x), wy = fromY(y), L = scene.listener;
+  if (d.type === 'yaw') { L.yaw = Math.atan2(wy - L.y, wx - L.x); changed(); }
+  else if (d.type === 'listener') { const p = nearestInside(snap(wx, 0.05), snap(wy, 0.05)); L.x = p.x; L.y = p.y; changed(); }
+  else if (d.type === 'key') { const k = d.track.motion.keys[d.index], p = nearestInside(snap(wx, 0.05), snap(wy, 0.05)); k.x = p.x; k.y = p.y; changed(); renderInspector(); }
+  else if (d.type === 'vertex') {
+    const v = scene.room.verts.map(p => ({ ...p })); v[d.index].x = snap(wx, 0.25); v[d.index].y = snap(wy, 0.25);
+    if (simple(v)) { scene.room.verts = v; markCustom(); changed(true); }
+  } else if (d.type === 'obstacle') { const o = scene.room.obstacles[d.index]; o.x = snap(wx - d.dx, 0.05); o.y = snap(wy - d.dy, 0.05); markCustom(); changed(true); }
+});
+const endPlan = () => { if (plan.drag) { plan.drag = null; if (tab === 'room') renderInspector(); renderHeader(); fitPlanIfNeeded(); } };
+plan.c.addEventListener('pointerup', endPlan); plan.c.addEventListener('pointercancel', endPlan);
+function fitPlanIfNeeded() {
+  const v = scene.room.verts, out = v.some(p => toX(p.x) < 30 || toX(p.x) > plan.c.clientWidth - 30 || toY(p.y) < 30 || toY(p.y) > plan.c.clientHeight - 30);
+  if (out) fitPlan();
+}
+plan.c.addEventListener('dblclick', e => {
+  const [x, y] = local(e, plan.c), hit = planPick(x, y), wx = fromX(x), wy = fromY(y);
+  if (hit && hit.type === 'wall') {
+    if (scene.room.verts.length >= MAX_VERTS) { hint('A room can have up to ' + MAX_VERTS + ' corners.'); return; }
+    pushUndo();
+    const p = scene.room.verts[hit.index], v = { x: snap(wx, 0.25), y: snap(wy, 0.25), mat: p.mat };
+    const next = scene.room.verts.slice(); next.splice(hit.index + 1, 0, v);
+    if (!simple(next)) { undoStack.pop(); hint('That corner sits too close to another one.'); return; }
+    scene.room.verts = next; roomSel = { kind: 'vertex', index: hit.index + 1 }; markCustom(); changed(true); renderInspector();
+  } else if (!hit && D.pointInPoly(wx, wy, room.verts)) {
+    const t = track(), z = D.evalPath(t.motion, beat).z; addKey(t, wx, wy, z);
+  }
+});
+
+/* ------------------------------------------------------------------ 3D view */
+const cam = { az: -0.75, el: 0.62, zoom: 1, c: $('persp'), drag: null };
+function projector(w, h) {
+  const v = scene.room.verts, H = scene.room.height;
+  const x0 = Math.min(...v.map(p => p.x)), x1 = Math.max(...v.map(p => p.x)), y0 = Math.min(...v.map(p => p.y)), y1 = Math.max(...v.map(p => p.y));
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, cz = H / 2, radius = Math.hypot(x1 - x0, y1 - y0, H) / 2 || 1;
+  const dist = radius * 3.1, f = (0.47 * Math.min(w, h) * cam.zoom * dist) / radius;
+  const ca = Math.cos(cam.az), sa = Math.sin(cam.az), ce = Math.cos(cam.el), se = Math.sin(cam.el);
+  return p => {
+    const x = p.x - cx, y = p.y - cy, z = p.z - cz;
+    const xr = x * ca - y * sa, yr = x * sa + y * ca;
+    const depth = dist + yr * ce - z * se, up = z * ce + yr * se;
+    const k = f / Math.max(depth, 0.1);
+    return [w / 2 + xr * k, h / 2 + 8 - up * k, depth];
+  };
+}
+function drawPersp() {
+  const { g, w, h } = fit(cam.c);
+  g.fillStyle = COL.paper; g.fillRect(0, 0, w, h);
+  const P = projector(w, h), map = p => P(p).slice(0, 2), v = scene.room.verts, H = scene.room.height;
+  const loop = (pts, fill, stroke, lw) => { g.beginPath(); pts.forEach((p, i) => { const q = P(p); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.closePath(); if (fill) { g.fillStyle = fill; g.fill(); } if (stroke) { g.strokeStyle = stroke; g.lineWidth = lw || 1; g.stroke(); } };
+  loop(v.map(p => ({ x: p.x, y: p.y, z: 0 })), 'rgba(120,165,220,.16)', COL.wall, 1.6);
+  const faces = v.map((p, i) => { const q = v[(i + 1) % v.length]; const pts = [{ x: p.x, y: p.y, z: 0 }, { x: q.x, y: q.y, z: 0 }, { x: q.x, y: q.y, z: H }, { x: p.x, y: p.y, z: H }]; return { pts, depth: pts.reduce((s, a) => s + P(a)[2], 0) / 4 }; }).sort((a, b) => b.depth - a.depth);
+  faces.forEach(f => loop(f.pts, 'rgba(170,205,245,.05)', 'rgba(205,225,247,.34)', 1));
+  loop(v.map(p => ({ x: p.x, y: p.y, z: H })), null, 'rgba(233,241,248,.62)', 1.2);
+  scene.room.obstacles.forEach(o => {
+    const c = D.obstacleCorners(o), hgt = Math.min(o.h, H);
+    c.forEach((p, i) => { const q = c[(i + 1) % 4]; loop([{ x: p.x, y: p.y, z: 0 }, { x: q.x, y: q.y, z: 0 }, { x: q.x, y: q.y, z: hgt }, { x: p.x, y: p.y, z: hgt }], 'rgba(200,220,245,.16)', 'rgba(233,241,248,.7)', 1); });
+  });
+  drawRays(g, map);
+  scene.tracks.forEach(t => {
+    const on = t.id === selTrack, c = ink(t);
+    if (t.motion.keys.length > 1) {
+      const pts = samplePath(t, 90);
+      g.strokeStyle = c; g.globalAlpha = 0.2; g.lineWidth = 1; g.beginPath(); pts.forEach((p, i) => { const q = P({ x: p.x, y: p.y, z: 0 }); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.stroke();
+      g.globalAlpha = on ? 1 : 0.5; g.lineWidth = on ? 2 : 1.3; g.beginPath(); pts.forEach((p, i) => { const q = P(p); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.stroke(); g.globalAlpha = 1;
+    }
+    t.motion.keys.forEach((k, i) => {
+      const q = P(k), b = P({ x: k.x, y: k.y, z: 0 });
+      g.strokeStyle = c; g.globalAlpha = 0.5; g.lineWidth = 1; g.setLineDash([2, 3]); g.beginPath(); g.moveTo(q[0], q[1]); g.lineTo(b[0], b[1]); g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
+      g.fillStyle = on && selKey === i ? '#fff' : c; g.save(); g.translate(q[0], q[1]); g.rotate(Math.PI / 4); g.fillRect(-4.5, -4.5, 9, 9); g.restore();
+    });
+    const p = D.evalPath(t.motion, beat), q = P(p), s = P({ x: p.x, y: p.y, z: 0 }), lvl = clamp((peaks[t.id] || 0) * 1.6, 0, 1), r = clamp(1300 / q[2] / 10, 5, 11);
+    g.strokeStyle = c; g.lineWidth = 1.2; g.beginPath(); g.moveTo(q[0], q[1]); g.lineTo(s[0], s[1]); g.stroke();
+    g.fillStyle = 'rgba(5,14,28,.55)'; g.beginPath(); g.ellipse(s[0], s[1], r, r * 0.45, 0, 0, 7); g.fill();
+    g.fillStyle = c; g.globalAlpha = 0.24; g.beginPath(); g.arc(q[0], q[1], r + 5 + lvl * 13, 0, 7); g.fill(); g.globalAlpha = 1;
+    g.beginPath(); g.arc(q[0], q[1], r, 0, 7); g.fill();
+  });
+  const L = scene.listener, q = P(L), n = P({ x: L.x + Math.cos(L.yaw) * 0.55, y: L.y + Math.sin(L.yaw) * 0.55, z: L.z }), s = P({ x: L.x, y: L.y, z: 0 });
+  g.strokeStyle = '#fff'; g.lineWidth = 1; g.setLineDash([2, 3]); g.beginPath(); g.moveTo(q[0], q[1]); g.lineTo(s[0], s[1]); g.stroke(); g.setLineDash([]);
+  g.lineWidth = 2; g.beginPath(); g.moveTo(q[0], q[1]); g.lineTo(n[0], n[1]); g.stroke();
+  g.fillStyle = COL.paper; g.beginPath(); g.arc(q[0], q[1], 8, 0, 7); g.fill(); g.stroke();
+  drawRadar(g, w);
+}
+function placeWords(t, p) {
+  const L = scene.listener, dx = p.x - L.x, dy = p.y - L.y, dz = p.z - L.z, d = Math.hypot(dx, dy, dz);
+  const f = dx * Math.cos(L.yaw) + dy * Math.sin(L.yaw), l = -dx * Math.sin(L.yaw) + dy * Math.cos(L.yaw);
+  if (d < 0.26) return { f, l, d, text: 'Inside your head', inside: true };
+  const names = ['Ahead', 'Ahead left', 'Left', 'Behind left', 'Behind', 'Behind right', 'Right', 'Ahead right'];
+  const sector = ((Math.round(Math.atan2(l, f) / (Math.PI / 4)) % 8) + 8) % 8;
+  const el = (Math.atan2(dz, Math.hypot(f, l)) * 180) / Math.PI;
+  const height = el > 20 ? ', above' : el < -20 ? ', below' : '';
+  return { f, l, d, text: names[sector] + height + ', ' + d.toFixed(1) + ' m', inside: false };
+}
+function drawRadar(g, w) {
+  const R = 54, cx = w - R - 14, cy = R + 14, scale = d => R * Math.pow(Math.min(d / 8, 1), 0.55);
+  g.fillStyle = 'rgba(11,30,58,.9)'; g.beginPath(); g.arc(cx, cy, R + 6, 0, 7); g.fill();
+  g.strokeStyle = 'rgba(160,195,235,.32)'; g.lineWidth = 1;
+  [1, 3, 8].forEach(d => { g.beginPath(); g.arc(cx, cy, scale(d), 0, 7); g.stroke(); });
+  g.beginPath(); g.moveTo(cx - R, cy); g.lineTo(cx + R, cy); g.moveTo(cx, cy - R); g.lineTo(cx, cy + R); g.stroke();
+  g.fillStyle = COL.dim; g.font = '10px "IBM Plex Mono", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('FRONT', cx, cy - R + 7); g.fillText('BACK', cx, cy + R - 7);
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(cx, cy, 5, 0, 7); g.fill();
+  g.beginPath(); g.moveTo(cx - 3, cy - 4); g.lineTo(cx + 3, cy - 4); g.lineTo(cx, cy - 10); g.fill();
+  let selected = null;
+  scene.tracks.forEach(t => {
+    const p = D.evalPath(t.motion, beat), info = placeWords(t, p), on = t.id === selTrack, r = scale(info.d), a = Math.atan2(info.l, info.f);
+    g.fillStyle = ink(t); g.globalAlpha = on ? 1 : 0.65;
+    g.beginPath(); g.arc(cx - Math.sin(a) * r, cy - Math.cos(a) * r, on ? 5 : 3.5, 0, 7); g.fill(); g.globalAlpha = 1;
+    if (on) selected = { t, info };
+  });
+  if (selected) {
+    g.font = '600 13px "IBM Plex Sans Condensed", sans-serif'; g.textAlign = 'right'; g.textBaseline = 'alphabetic';
+    g.fillStyle = selected.info.inside ? COL.accent : COL.wall;
+    g.fillText(selected.t.name + ': ' + selected.info.text, w - 12, cy + R + 24);
+  }
+}
+function perspPick(x, y) {
+  const P = projector(cam.c.clientWidth, cam.c.clientHeight);
+  let best = null, bd = 13;
+  [track(), ...scene.tracks.filter(t => t.id !== selTrack)].forEach(t => t.motion.keys.forEach((k, i) => { const q = P(k), d = Math.hypot(q[0] - x, q[1] - y); if (d < bd) { bd = d; best = { track: t, index: i }; } }));
+  return best;
+}
+cam.c.addEventListener('pointerdown', e => {
+  const [x, y] = local(e, cam.c), hit = perspPick(x, y);
+  cam.c.setPointerCapture(e.pointerId);
+  if (hit) { pushUndo(); selTrack = hit.track.id; selKey = hit.index; tab = 'track'; renderTracks(); renderInspector(); renderHeader(); cam.drag = { type: 'height', hit, y, z: hit.track.motion.keys[hit.index].z }; }
+  else cam.drag = { type: 'orbit', x, y, az: cam.az, el: cam.el };
+  dirty = true;
+});
+cam.c.addEventListener('pointermove', e => {
+  const [x, y] = local(e, cam.c), d = cam.drag;
+  if (!d) { cam.c.style.cursor = perspPick(x, y) ? 'ns-resize' : 'move'; return; }
+  if (d.type === 'orbit') { cam.az = d.az + (x - d.x) * 0.008; cam.el = clamp(d.el + (y - d.y) * 0.006, 0.08, 1.45); dirty = true; }
+  else {
+    const P = projector(cam.c.clientWidth, cam.c.clientHeight), k = d.hit.track.motion.keys[d.hit.index];
+    const perMetre = Math.max(4, Math.abs(P({ x: k.x, y: k.y, z: 1 })[1] - P({ x: k.x, y: k.y, z: 0 })[1]));
+    k.z = clamp(snap(d.z - (y - d.y) / perMetre, 0.05), 0.05, scene.room.height - 0.05); changed(); renderInspector();
+  }
+});
+const endCam = () => { cam.drag = null; };
+cam.c.addEventListener('pointerup', endCam); cam.c.addEventListener('pointercancel', endCam);
+cam.c.addEventListener('wheel', e => { e.preventDefault(); cam.zoom = clamp(cam.zoom * Math.exp(-e.deltaY * 0.001), 0.5, 3); dirty = true; }, { passive: false });
+
+/* ------------------------------------------------------------------ timeline */
+const tl = { c: $('timeline'), drag: null, left: 86, ruler: 22, lane: 24 };
+function layoutTimeline() { tl.c.style.height = tl.ruler + tl.lane * scene.tracks.length + 4 + 'px'; dirty = true; }
+const beatX = (b, w) => tl.left + (b / span()) * (w - tl.left - 10);
+const xBeat = (x, w) => ((x - tl.left) / (w - tl.left - 10)) * span();
+function drawTimeline() {
+  const { g, w, h } = fit(tl.c);
+  g.fillStyle = '#0b1e3a'; g.fillRect(0, 0, w, h);
+  const sp = span(), bars = sp / D.BEATS_PER_BAR, every = bars > 16 ? 4 : bars > 8 ? 2 : 1;
+  g.font = '11px "IBM Plex Mono", monospace'; g.textBaseline = 'middle'; g.textAlign = 'left';
+  for (let b = 0; b <= sp; b++) {
+    const x = Math.round(beatX(b, w)) + 0.5, bar = b % D.BEATS_PER_BAR === 0;
+    if (!bar && bars > 12) continue;
+    g.strokeStyle = bar ? 'rgba(160,195,235,.32)' : 'rgba(160,195,235,.1)'; g.lineWidth = 1; g.beginPath(); g.moveTo(x, bar ? 3 : tl.ruler - 5); g.lineTo(x, h); g.stroke();
+    if (bar && (b / D.BEATS_PER_BAR) % every === 0 && b < sp) { g.fillStyle = COL.dim; g.fillText(String(b / D.BEATS_PER_BAR + 1), x + 4, 11); }
+  }
+  scene.tracks.forEach((t, i) => {
+    const y = tl.ruler + i * tl.lane, on = t.id === selTrack, c = ink(t), m = t.motion, len = pathLen(t);
+    if (on) { g.fillStyle = 'rgba(160,195,235,.12)'; g.fillRect(0, y, w, tl.lane); }
+    g.strokeStyle = 'rgba(160,195,235,.16)'; g.beginPath(); g.moveTo(0, y + tl.lane + 0.5); g.lineTo(w, y + tl.lane + 0.5); g.stroke();
+    g.fillStyle = on ? COL.wall : COL.dim; g.font = '600 12px "IBM Plex Sans Condensed", sans-serif'; g.textAlign = 'left';
+    g.fillText(t.name.slice(0, 12), 8, y + tl.lane / 2);
+    const mid = y + tl.lane / 2;
+    if (m.mode === 'automation') {
+      const x = beatX(m.auto * sp, w);
+      g.fillStyle = c; g.globalAlpha = 0.25; g.fillRect(tl.left, y + 5, x - tl.left, tl.lane - 10); g.globalAlpha = 1;
+      g.fillRect(x - 2, y + 3, 4, tl.lane - 6);
+      g.font = '11px "IBM Plex Mono", monospace'; g.fillStyle = COL.dim; g.textAlign = 'right'; g.fillText('AUTOMATION ' + Math.round(m.auto * 100) + '%', w - 16, mid);
+      return;
+    }
+    const reps = m.loop === 'once' ? 1 : Math.ceil(sp / len);
+    for (let r = 0; r < reps; r++) {
+      const back = m.loop === 'pingpong' && r % 2 === 1, off = r * len, x0 = beatX(off, w), x1 = beatX(Math.min(off + len, sp), w);
+      g.strokeStyle = c; g.globalAlpha = r ? 0.3 : 0.65; g.lineWidth = 2; g.beginPath(); g.moveTo(x0, mid); g.lineTo(x1, mid); g.stroke();
+      m.keys.forEach((k, j) => {
+        const tb = off + (back ? len - k.t : k.t); if (tb > sp) return;
+        const x = beatX(tb, w), sz = r ? 3 : 5;
+        g.globalAlpha = r ? 0.4 : 1; g.fillStyle = on && selKey === j && !r ? '#fff' : c;
+        g.save(); g.translate(x, mid); g.rotate(Math.PI / 4); g.fillRect(-sz, -sz, sz * 2, sz * 2); g.restore();
+      });
+      g.globalAlpha = 1;
+    }
+  });
+  const x = beatX(beat % sp, w);
+  g.strokeStyle = COL.accent; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke();
+  g.fillStyle = COL.accent; g.beginPath(); g.moveTo(x - 5, 0); g.lineTo(x + 5, 0); g.lineTo(x, 8); g.fill();
+}
+tl.c.addEventListener('pointerdown', e => {
+  const [x, y] = local(e, tl.c), w = tl.c.clientWidth;
+  tl.c.setPointerCapture(e.pointerId);
+  if (y < tl.ruler) { tl.drag = { type: 'seek' }; seek(clamp(xBeat(x, w), 0, span())); return; }
+  const lane = Math.floor((y - tl.ruler) / tl.lane), t = scene.tracks[lane]; if (!t) return;
+  if (selTrack !== t.id) { selTrack = t.id; selKey = null; renderTracks(); }
+  tab = 'track';
+  if (t.motion.mode === 'automation') { pushUndo(); tl.drag = { type: 'auto', t }; t.motion.auto = clamp(xBeat(x, w) / span(), 0, 1); sendParam(t, 'pos', t.motion.auto); changed(); renderInspector(); return; }
+  const idx = t.motion.keys.findIndex(k => Math.abs(beatX(k.t, w) - x) < 9);
+  if (idx >= 0) { pushUndo(); selKey = idx; tl.drag = { type: 'key', t, k: t.motion.keys[idx] }; }
+  renderInspector(); renderHeader(); dirty = true;
+});
+tl.c.addEventListener('pointermove', e => {
+  const d = tl.drag; if (!d) return;
+  const [x] = local(e, tl.c), w = tl.c.clientWidth;
+  if (d.type === 'seek') seek(clamp(xBeat(x, w), 0, span()));
+  else if (d.type === 'auto') { d.t.motion.auto = clamp(xBeat(x, w) / span(), 0, 1); sendParam(d.t, 'pos', d.t.motion.auto); changed(); renderInspector(); }
+  else {
+    const b = clamp(snap(xBeat(x, w), 0.25), 0, pathLen(d.t) - 0.25);
+    if (!d.t.motion.keys.some(k => k !== d.k && Math.abs(k.t - b) < 0.2)) { d.k.t = b; sortKeys(d.t, d.k); changed(); renderInspector(); }
+  }
+});
+const endTl = () => { tl.drag = null; };
+tl.c.addEventListener('pointerup', endTl); tl.c.addEventListener('pointercancel', endTl);
+
+/* ------------------------------------------------------------------ chrome */
+function hint(text) { $('hint').textContent = text; clearTimeout(hint.t); hint.t = setTimeout(setHint, 3500); }
+function setHint() { $('hint').textContent = 'Drag anything on the plan. Double-click a wall to add a corner, or the floor to add a keyframe. In 3D, drag a keyframe to set its height.'; }
+$('play').onclick = togglePlay;
+$('rewind').onclick = () => seek(0);
+$('bpm').onchange = () => { pushUndo(); scene.bpm = clamp(Math.round(+$('bpm').value) || scene.bpm, 40, 240); renderHeader(); audio.syncLoops(); changed(); };
+$('preset').onchange = () => { if ($('preset').value === 'custom') return; applyPreset($('preset').value); };
+$('master').oninput = () => { if (audio.master) audio.master.gain.setTargetAtTime(+$('master').value, audio.ctx.currentTime, 0.02); };
+$('tabTrack').onclick = () => { tab = 'track'; renderInspector(); };
+$('tabRoom').onclick = () => { tab = 'room'; renderInspector(); };
+function undo() { const s = undoStack.pop(); if (!s) return; scene = JSON.parse(s); if (!scene.tracks.some(t => t.id === selTrack)) selTrack = scene.tracks[0].id; selKey = null; roomSel = null; refreshAll(); sendAllParams(); }
+$('undo').onclick = undo;
+$('file').onchange = async () => {
+  const f = $('file').files[0], t = pendingFileTrack; $('file').value = '';
+  if (!f || !t) return;
+  try { await audio.loadFile(t, f); changed(); renderTracks(); }
+  catch (e) { hint('That audio file could not be decoded. Try a WAV or MP3.'); renderTracks(); }
+};
+$('sceneBtn').onclick = () => { $('sceneText').value = JSON.stringify(scene, null, 1); $('sceneMsg').textContent = ''; $('overlay').classList.add('open'); $('sceneText').focus(); };
+$('sceneClose').onclick = () => $('overlay').classList.remove('open');
+$('sceneCopy').onclick = async () => { try { await navigator.clipboard.writeText($('sceneText').value); $('sceneMsg').textContent = 'Scene copied.'; } catch (e) { $('sceneText').select(); $('sceneMsg').textContent = 'Press Ctrl+C to copy the selected text.'; } };
+$('sceneApply').onclick = () => {
+  try {
+    const s = JSON.parse($('sceneText').value);
+    if (!validScene(s)) throw new Error('shape');
+    s.listener.focus ??= 0.8;
+    pushUndo(); scene = s; selTrack = PLUGIN ? PLUGIN.ownId : s.tracks[0].id; selKey = null; roomSel = null; refreshAll(); sendAllParams(); $('overlay').classList.remove('open');
+  } catch (e) { $('sceneMsg').textContent = 'That text is not a Roomwalker scene. Check that the whole file was pasted.'; }
+};
+window.addEventListener('keydown', e => {
+  const typing = /INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && e.target.type !== 'range';
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); undo(); return; }
+  if (typing) return;
+  if (!PLUGIN && e.code === 'Space' && e.target.tagName !== 'BUTTON') { e.preventDefault(); togglePlay(); }
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (selKey != null) deleteKey();
+    else if (roomSel?.kind === 'vertex') deleteVertex();
+    else if (roomSel?.kind === 'obstacle') deleteObstacle();
+  }
+});
+new ResizeObserver(() => { fitPlan(); dirty = true; }).observe($('views'));
+new ResizeObserver(() => { dirty = true; }).observe(tl.c);
+
+function frame() {
+  audio.flush();
+  if (dirty || playing) {
+    dirty = false;
+    drawPlan(); drawPersp(); drawTimeline();
+    const b = Math.max(beat, 0), bar = Math.floor(b / 4) + 1, bt = Math.floor(b % 4) + 1, tick = Math.floor((b % 1) * 100);
+    $('clock').textContent = bar + '.' + bt + '.' + String(tick).padStart(2, '0');
+    scene.tracks.forEach(t => { const m = $('meter' + t.id); if (m) m.style.width = clamp((peaks[t.id] || 0) * 100, 0, 100) + '%'; });
+  }
+  requestAnimationFrame(frame);
+}
+if (PLUGIN) PLUGIN.send({ type: 'hello' });
+setHint(); renderHeader(); renderTracks(); renderInspector(); layoutTimeline(); fitPlan();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { dirty = true; });
+requestAnimationFrame(frame);
+window.__rw = { get scene() { return scene; }, get beat() { return beat; }, get playing() { return playing; }, audio, applyPreset };
+})();
+</script>
+</body>
+</html>

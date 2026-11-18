@@ -1,0 +1,59 @@
+name: Build Windows VST3
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache JUCE download
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: juce-8.0.4-${{ runner.os }}
+
+      - name: Install WebView2 SDK (the plugin window is the Roomwalker page)
+        shell: pwsh
+        run: |
+          Register-PackageSource -ProviderName NuGet -Name nugetRepository -Location https://www.nuget.org/api/v2 -Force -Trusted
+          Install-Package Microsoft.Web.WebView2 -Scope CurrentUser -RequiredVersion 1.0.1901.177 -Source nugetRepository -Force
+
+      - name: Configure
+        run: cmake -S . -B build -A x64
+
+      - name: Build
+        run: cmake --build build --config Release --parallel --target Roomwalker_VST3 rwrender rwhosttest
+
+      - name: Check the engine against the browser version
+        run: build/Release/rwrender.exe --selftest
+
+      - name: Check real plugin instances
+        run: build/rwhosttest_artefacts/Release/rwhosttest.exe
+
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: Roomwalker-VST3-Windows
+          path: build/Roomwalker_artefacts/Release/VST3/
+
+      - name: Zip for release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: Compress-Archive -Path build/Roomwalker_artefacts/Release/VST3/Roomwalker.vst3 -DestinationPath Roomwalker-VST3-Windows.zip
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Roomwalker-VST3-Windows.zip
+          generate_release_notes: true
