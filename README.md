@@ -4,7 +4,7 @@ A VST3 effect that places a track's sound inside a simulated 3D room and moves i
 
 ## Install (Windows)
 
-1. Download `Roomwalker-VST3-Windows.zip` from [Releases](../../releases/latest).
+1. Open the newest successful run under [Actions](../../actions/workflows/build.yml) and download `Roomwalker-VST3-Windows` from its Artifacts section.
 2. Unzip it and copy `Roomwalker.vst3` to `C:\Program Files\Common Files\VST3`.
 3. In Cakewalk, rescan VST plugins and add **Roomwalker** to a track's effects bin.
 
